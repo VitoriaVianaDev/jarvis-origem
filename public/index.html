@@ -49,7 +49,15 @@
 
   <div id="tela-painel" class="painel-geral" hidden>
     <header class="topo">
-      <span class="marca">JARVIS</span>
+      <div class="marca-bloco">
+        <span class="marca">JARVIS</span>
+        <span class="triangulos" aria-hidden="true"></span>
+      </div>
+      <dl class="leituras" aria-label="Situação agora">
+        <div><dt>Banco</dt><dd id="leitura-banco">—</dd></div>
+        <div><dt>Pedidos hoje</dt><dd id="leitura-pedidos">—</dd></div>
+        <div><dt>Tokens hoje</dt><dd id="leitura-tokens">—</dd></div>
+      </dl>
       <div class="relogio">
         <time id="hora" class="hora"></time>
         <time id="data" class="data"></time>
@@ -80,24 +88,28 @@
         </div>
         <dl id="diagnostico" class="diagnostico" aria-live="polite"></dl>
         <p id="erro-diagnostico" class="mensagem-erro" role="alert"></p>
-        <div class="painel-cabecalho subtitulo-ia">
-          <h3>Inteligência artificial</h3>
+      </section>
+      <section class="painel" aria-labelledby="modelos-titulo">
+        <div class="painel-cabecalho">
+          <h2 id="modelos-titulo">Modelos de IA</h2>
           <button id="testar-ia" type="button" class="botao-discreto">Testar IA</button>
         </div>
-        <dl id="diagnostico-ia" class="diagnostico"></dl>
+        <ul id="lista-modelos" class="lista-modelos"></ul>
       </section>
-      <section class="painel" aria-labelledby="etapas-titulo">
-        <h2 id="etapas-titulo">O que já funciona</h2>
-        <ul class="etapas">
-          <li class="pronta">Acesso com senha e banco de dados</li>
-          <li class="pronta">Conversa com IA</li>
+      <section class="painel" aria-labelledby="modulos-titulo">
+        <h2 id="modulos-titulo">Módulos</h2>
+        <ul class="modulos">
+          <li class="pronto">Acesso e banco</li>
+          <li class="pronto">Conversa com IA</li>
           <li>Memória</li>
-          <li>Lembretes, tarefas e agenda</li>
+          <li>Lembretes e agenda</li>
           <li>Finanças</li>
-          <li>Clima, notícias e pesquisa</li>
+          <li>Clima e notícias</li>
+          <li>Pesquisa</li>
           <li>Voz</li>
-          <li>Painel completo e backup</li>
+          <li>Backup</li>
         </ul>
+        <p class="legenda-modulos">Acesos: prontos. Apagados: ainda não disponíveis.</p>
       </section>
     </aside>
 
@@ -106,12 +118,16 @@
         <h2 id="anotacoes-titulo">Anotações</h2>
         <form id="form-anotacao" novalidate>
           <label for="anotacao" class="so-leitor">Nova anotação</label>
-          <textarea id="anotacao" rows="3" maxlength="2000" placeholder="Escreva algo e recarregue a página: continuará aqui."></textarea>
-          <button type="submit" class="botao-principal">Salvar anotação</button>
+          <textarea id="anotacao" rows="2" maxlength="2000" placeholder="Escreva uma anotação"></textarea>
+          <button type="submit" class="botao-secundario">Salvar anotação</button>
           <p id="erro-anotacao" class="mensagem-erro" role="alert"></p>
         </form>
         <ul id="lista-anotacoes" class="lista-anotacoes"></ul>
         <p id="sem-anotacoes" class="vazio" hidden>Nenhuma anotação salva ainda.</p>
+      </section>
+      <section class="painel" aria-labelledby="uso-titulo">
+        <h2 id="uso-titulo">Tokens de IA por hora, hoje</h2>
+        <div id="grafico-uso" class="grafico-uso"></div>
       </section>
     </aside>
   </div>

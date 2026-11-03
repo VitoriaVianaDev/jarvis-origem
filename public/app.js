@@ -18,11 +18,11 @@ const nucleo = criarNucleo(canvas, {
       const janela = document.querySelector('.janela-nucleo').getBoundingClientRect();
       const base = canvas.getBoundingClientRect();
       const y = janela.top - base.top + janela.height / 2;
-      const raio = Math.min(janela.width * .3, janela.height * .36);
-      return { x: janela.left - base.left + janela.width / 2, y, raio: Math.max(raio, 62) };
+      const raio = Math.min(janela.width * .235, janela.height * .235);
+      return { x: janela.left - base.left + janela.width / 2, y, raio: Math.max(raio, 58) };
     }
     const y = larga ? innerHeight * .38 : 300;
-    return { x: innerWidth / 2, y, raio: Math.min(innerWidth * .28, innerHeight * .2, 190) };
+    return { x: innerWidth / 2, y, raio: Math.min(innerWidth * .24, innerHeight * .17, 170) };
   },
 });
 
@@ -68,6 +68,8 @@ const formatoCurto = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-
 function atualizarRelogio() {
   const agora = new Date();
   $('hora').textContent = formatoHora.format(agora);
+  const [h, m, s] = formatoHora.format(agora).split(':').map(Number);
+  nucleo.definirDados({ dia: (h * 3600 + m * 60 + s) / 86400 });
   $('data').textContent = formatoData.format(agora);
 }
 
@@ -85,6 +87,64 @@ function linhaDiagnostico(rotulo, valor, classe) {
   return div;
 }
 
+function desenharModelos(modelos) {
+  $('lista-modelos').replaceChildren(...modelos.map((m) => {
+    const teste = resultadoTesteIa?.find((r) => r.nome === m.nome);
+    const li = document.createElement('li');
+    const cabeca = document.createElement('div');
+    cabeca.className = 'modelo-cabeca';
+    const nome = document.createElement('span');
+    nome.textContent = m.nome;
+    const contagem = document.createElement('span');
+    contagem.className = 'modelo-contagem';
+    contagem.textContent = m.falhas ? `${m.pedidos} ok, ${m.falhas} com falha` : `${m.pedidos} ok`;
+    cabeca.append(nome, contagem);
+    li.append(cabeca);
+    const aviso = !m.disponivel ? 'Não configurado' : teste ? (teste.ok ? `Teste: respondeu em ${teste.detalhe}` : `Teste: ${teste.detalhe}`) : m.ultimaFalha ? `Última falha: ${m.ultimaFalha}` : '';
+    if (aviso) {
+      const detalhe = document.createElement('p');
+      detalhe.className = `modelo-detalhe ${teste?.ok ? 'certo' : 'falha'}`;
+      detalhe.textContent = aviso;
+      li.append(detalhe);
+    }
+    return li;
+  }));
+}
+
+function desenharUso(porHora) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const maior = Math.max(...porHora);
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 264 76');
+  svg.setAttribute('role', 'img');
+  const total = porHora.reduce((a, b) => a + b, 0);
+  svg.setAttribute('aria-label', maior
+    ? `${total} tokens hoje; maior consumo às ${porHora.indexOf(maior)} horas, com ${maior} tokens.`
+    : 'Nenhum consumo de IA hoje.');
+  const linhaBase = document.createElementNS(NS, 'line');
+  for (const [k, v] of Object.entries({ x1: 0, x2: 264, y1: 58.5, y2: 58.5, class: 'uso-base' })) linhaBase.setAttribute(k, v);
+  svg.append(linhaBase);
+  porHora.forEach((tokens, hora) => {
+    const altura = maior ? Math.max(tokens ? 3 : 0, (tokens / maior) * 54) : 0;
+    const grupo = document.createElementNS(NS, 'g');
+    const titulo = document.createElementNS(NS, 'title');
+    titulo.textContent = `${hora}h: ${tokens.toLocaleString('pt-BR')} tokens`;
+    const alvo = document.createElementNS(NS, 'rect');
+    for (const [k, v] of Object.entries({ x: hora * 11, y: 0, width: 11, height: 58, fill: 'transparent' })) alvo.setAttribute(k, v);
+    const barra = document.createElementNS(NS, 'rect');
+    for (const [k, v] of Object.entries({ x: hora * 11 + 2, y: 58 - altura, width: 7, height: altura, rx: 1.5, class: 'uso-barra' })) barra.setAttribute(k, v);
+    grupo.append(titulo, alvo, barra);
+    svg.append(grupo);
+    if (hora % 6 === 0) {
+      const rotulo = document.createElementNS(NS, 'text');
+      for (const [k, v] of Object.entries({ x: hora * 11 + 5.5, y: 72, 'text-anchor': 'middle', class: 'uso-rotulo' })) rotulo.setAttribute(k, v);
+      rotulo.textContent = `${hora}h`;
+      svg.append(rotulo);
+    }
+  });
+  $('grafico-uso').replaceChildren(svg);
+}
+
 async function verificar() {
   const botao = $('verificar');
   botao.disabled = true;
@@ -99,20 +159,19 @@ async function verificar() {
       linhaDiagnostico('Sessão expira em', formatoCurto.format(d.sessaoExpiraEm)),
       linhaDiagnostico('Verificado às', formatoHora.format(d.verificadoEm)),
     );
-    const linhasIa = [
+    $('diagnostico').append(
       linhaDiagnostico('Chave da Groq', d.ia.groqConfigurado ? 'Configurada' : 'Falta configurar', d.ia.groqConfigurado ? 'certo' : 'falha'),
       linhaDiagnostico('IA reserva', d.ia.workersAiConectado ? 'Conectada' : 'Falta conectar', d.ia.workersAiConectado ? 'certo' : 'falha'),
-      linhaDiagnostico('Pedidos hoje', String(d.ia.hoje.pedidos)),
-      linhaDiagnostico('Tokens hoje', d.ia.hoje.tokens.toLocaleString('pt-BR')),
-    ];
-    if (d.ia.hoje.falhas) linhasIa.push(linhaDiagnostico('Falhas hoje', String(d.ia.hoje.falhas), 'falha'));
+    );
     if (d.ia.pedidosRestantes) {
-      linhasIa.push(linhaDiagnostico(`Restam em ${d.ia.modeloPrincipal}`, `${d.ia.pedidosRestantes} de ${d.ia.pedidosLimite}`));
+      $('diagnostico').append(linhaDiagnostico(`Cota ${d.ia.modeloPrincipal}`, `${d.ia.pedidosRestantes} de ${d.ia.pedidosLimite}`));
+      nucleo.definirDados({ cota: Number(d.ia.pedidosRestantes) / Number(d.ia.pedidosLimite) });
     }
-    for (const m of resultadoTesteIa ?? []) {
-      linhasIa.push(linhaDiagnostico(m.nome, m.ok ? `Respondeu em ${m.detalhe}` : m.detalhe, m.ok ? 'certo' : 'falha'));
-    }
-    $('diagnostico-ia').replaceChildren(...linhasIa);
+    $('leitura-banco').textContent = d.banco.gravouELeu ? `${d.banco.milissegundos} ms` : 'Falhou';
+    $('leitura-pedidos').textContent = String(d.ia.hoje.pedidos);
+    $('leitura-tokens').textContent = d.ia.hoje.tokens.toLocaleString('pt-BR');
+    desenharModelos(d.ia.porModelo);
+    desenharUso(d.ia.porHora);
   } catch (e) {
     if (!tratarSessaoExpirada(e)) {
       $('diagnostico').replaceChildren(linhaDiagnostico('Banco de dados', 'Falhou', 'falha'));
@@ -272,7 +331,9 @@ function adicionarFala(mensagem) {
 function ajustarCampo() {
   const campo = $('mensagem');
   campo.style.height = 'auto';
-  campo.style.height = `${Math.min(campo.scrollHeight, 140)}px`;
+  const altura = Math.min(campo.scrollHeight, 140);
+  campo.style.height = `${altura}px`;
+  campo.style.overflowY = campo.scrollHeight > 140 ? 'auto' : 'hidden';
 }
 
 async function carregarConversa() {

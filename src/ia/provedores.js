@@ -119,6 +119,10 @@ export async function chamarModelo(env, modelo, { messages, tools, maxTokens = M
   } catch (e) {
     if (!(e instanceof FalhaDeModelo)) throw e;
     await registrarUso(env, modelo, null, inicio, e.status === 429 ? 'limite' : 'falha');
+    await env.DB
+      .prepare('INSERT INTO ajustes (chave, valor) VALUES (?, ?) ON CONFLICT (chave) DO UPDATE SET valor = excluded.valor')
+      .bind(`falha:${modelo.id}`, JSON.stringify({ motivo: e.message, em: Date.now() }))
+      .run();
     throw e;
   }
 }
@@ -140,10 +144,39 @@ export async function resumoDeUso(env) {
   const principal = MODELOS[0];
   const linha = await env.DB.prepare('SELECT valor FROM ajustes WHERE chave = ?').bind(`limites:${principal.id}`).first();
   const limites = linha ? JSON.parse(linha.valor) : null;
+
+  const falhas = await env.DB.prepare("SELECT chave, valor FROM ajustes WHERE chave LIKE 'falha:%'").all();
+  const ultimaFalha = new Map(falhas.results.map((f) => [f.chave.slice(6), JSON.parse(f.valor)]));
+  const disponiveis = modelosDisponiveis(env);
+  const porModelo = MODELOS.map((m) => {
+    const uso = results.find((r) => r.modelo === m.id);
+    const falha = uso?.falhas ? ultimaFalha.get(m.id) : null;
+    return {
+      nome: m.nome,
+      disponivel: disponiveis.includes(m),
+      pedidos: uso?.pedidos ?? 0,
+      falhas: uso?.falhas ?? 0,
+      ultimaFalha: falha?.motivo ?? null,
+    };
+  });
+
+  // Brasília não tem horário de verão desde 2019: UTC-3 o ano inteiro.
+  const horas = await env.DB
+    .prepare(
+      `SELECT ((criado_em / 3600000) - 3 + 24) % 24 AS hora, SUM(tokens_entrada + tokens_saida) AS tokens
+       FROM uso_ia WHERE dia = ? GROUP BY hora`,
+    )
+    .bind(hoje)
+    .all();
+  const porHora = Array.from({ length: 24 }, () => 0);
+  for (const h of horas.results) porHora[h.hora] = h.tokens;
+
   return {
     groqConfigurado: Boolean(env.GROQ_API_KEY),
     workersAiConectado: Boolean(env.AI),
     hoje: totais,
+    porModelo,
+    porHora,
     modeloPrincipal: principal.nome,
     pedidosRestantes: limites?.pedidosRestantes ?? null,
     pedidosLimite: limites?.pedidosLimite ?? null,

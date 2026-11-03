@@ -142,6 +142,11 @@ test('cota esgotada passa ao próximo modelo e registra o uso', async () => {
     { pedidos: d.ia.hoje.pedidos, falhas: d.ia.hoje.falhas, tokens: d.ia.hoje.tokens },
     { pedidos: 1, falhas: 1, tokens: 120 },
   );
+  assert.equal(d.ia.porModelo[0].ultimaFalha, 'o limite gratuito foi atingido');
+  assert.equal(d.ia.porModelo[1].pedidos, 1);
+  assert.equal(d.ia.porModelo[1].ultimaFalha, null);
+  assert.equal(d.ia.porHora.length, 24);
+  assert.equal(d.ia.porHora.reduce((a, b) => a + b), 120);
 });
 
 test('Workers AI assume quando toda a Groq falha, sem repetir a anotação', async () => {
