@@ -1,4 +1,6 @@
 import { criarNucleo } from './nucleo.js';
+import { carregarMapa } from './planeta.js';
+import { iniciarRadio } from './radio.js';
 
 const $ = (id) => document.getElementById(id);
 const TELAS = ['tela-carregando', 'tela-ajuste', 'tela-entrar', 'tela-painel'];
@@ -12,19 +14,26 @@ let telaAtual = 'tela-carregando';
 
 const canvas = $('nucleo');
 const nucleo = criarNucleo(canvas, {
+  areaInterativa: $('janela-nucleo'),
   centro() {
     const larga = innerWidth > 1080;
     if (telaAtual === 'tela-painel') {
-      const janela = document.querySelector('.janela-nucleo').getBoundingClientRect();
+      const janela = $('janela-nucleo').getBoundingClientRect();
       const base = canvas.getBoundingClientRect();
-      const y = janela.top - base.top + janela.height / 2;
-      const raio = Math.min(janela.width * .235, janela.height * .235);
-      return { x: janela.left - base.left + janela.width / 2, y, raio: Math.max(raio, 58) };
+      const raio = Math.min(janela.width * .27, janela.height * .27);
+      return { x: janela.left - base.left + janela.width / 2, y: janela.top - base.top + janela.height / 2, raio: Math.max(raio, 58) };
     }
-    const y = larga ? innerHeight * .38 : 300;
+    const y = larga ? innerHeight * .36 : 280;
     return { x: innerWidth / 2, y, raio: Math.min(innerWidth * .24, innerHeight * .17, 170) };
   },
 });
+carregarMapa().then((mapa) => nucleo.definirMapa(mapa)).catch((e) => {
+  console.error('Mapa', e);
+  mapaFalhou = true;
+  if ($('radio-estado')) $('radio-estado').dataset.mapa = 'falhou';
+});
+let mapaFalhou = false;
+let radioIniciado = false;
 
 function mostrar(tela) {
   telaAtual = tela;
@@ -68,8 +77,6 @@ const formatoCurto = new Intl.DateTimeFormat('pt-BR', { timeZone: FUSO, day: '2-
 function atualizarRelogio() {
   const agora = new Date();
   $('hora').textContent = formatoHora.format(agora);
-  const [h, m, s] = formatoHora.format(agora).split(':').map(Number);
-  nucleo.definirDados({ dia: (h * 3600 + m * 60 + s) / 86400 });
   $('data').textContent = formatoData.format(agora);
 }
 
@@ -85,6 +92,30 @@ function linhaDiagnostico(rotulo, valor, classe) {
   if (classe) dd.className = classe;
   div.append(dt, dd);
   return div;
+}
+
+function desenharMedidor(fracao, modelo) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 80 80');
+  svg.setAttribute('aria-hidden', 'true');
+  const anel = (raio, classe, extra = {}) => {
+    const c = document.createElementNS(NS, 'circle');
+    for (const [k, v] of Object.entries({ cx: 40, cy: 40, r: raio, class: classe, ...extra })) c.setAttribute(k, v);
+    svg.append(c);
+  };
+  const volta = 2 * Math.PI * 32;
+  anel(37, 'medidor-externo', { 'stroke-dasharray': '1.5 3.3' });
+  anel(32, 'medidor-trilha');
+  anel(32, 'medidor-valor', { 'stroke-dasharray': `${volta * fracao} ${volta}`, transform: 'rotate(-90 40 40)' });
+  const numero = document.createElementNS(NS, 'text');
+  for (const [k, v] of Object.entries({ x: 40, y: 45, 'text-anchor': 'middle', class: 'medidor-numero' })) numero.setAttribute(k, v);
+  numero.textContent = `${Math.round(fracao * 100)}%`;
+  svg.append(numero);
+  const legenda = document.createElement('p');
+  legenda.textContent = `Cota restante hoje de ${modelo}`;
+  $('medidor-cota').replaceChildren(svg, legenda);
+  $('medidor-cota').hidden = false;
 }
 
 function desenharModelos(modelos) {
@@ -165,7 +196,7 @@ async function verificar() {
     );
     if (d.ia.pedidosRestantes) {
       $('diagnostico').append(linhaDiagnostico(`Cota ${d.ia.modeloPrincipal}`, `${d.ia.pedidosRestantes} de ${d.ia.pedidosLimite}`));
-      nucleo.definirDados({ cota: Number(d.ia.pedidosRestantes) / Number(d.ia.pedidosLimite) });
+      desenharMedidor(Number(d.ia.pedidosRestantes) / Number(d.ia.pedidosLimite), d.ia.modeloPrincipal);
     }
     $('leitura-banco').textContent = d.banco.gravouELeu ? `${d.banco.milissegundos} ms` : 'Falhou';
     $('leitura-pedidos').textContent = String(d.ia.hoje.pedidos);
@@ -293,11 +324,19 @@ function definirEstado(nome) {
   $('estado-nome').textContent = NOMES_ESTADO[nome];
 }
 
+function ampliarPlaneta(ativo) {
+  $('centro').classList.toggle('planeta-ampliado', ativo);
+  $('ampliar-planeta').textContent = ativo ? 'Mostrar conversa' : 'Ampliar planeta';
+  nucleo.reposicionar();
+}
+
 function modoConversa(ativo) {
   const mudou = $('centro').classList.contains('com-conversa') !== ativo;
   $('centro').classList.toggle('com-conversa', ativo);
   $('historico').hidden = !ativo;
   $('nova-conversa').hidden = !ativo;
+  $('ampliar-planeta').hidden = !ativo;
+  if (!ativo) ampliarPlaneta(false);
   if (mudou) nucleo.reposicionar();
 }
 
@@ -369,6 +408,7 @@ async function enviarMensagem() {
   $('enviar').disabled = true;
   $('erro-conversa').textContent = '';
   modoConversa(true);
+  ampliarPlaneta(false);
   const falaUsuario = adicionarFala({ papel: 'user', conteudo: texto });
   campo.value = '';
   ajustarCampo();
@@ -440,6 +480,9 @@ $('mensagem').addEventListener('keydown', (evento) => {
     enviarMensagem();
   }
 });
+$('ampliar-planeta').addEventListener('click', () => {
+  ampliarPlaneta(!$('centro').classList.contains('planeta-ampliado'));
+});
 $('nova-conversa').addEventListener('click', async () => {
   if (conversando) return;
   try {
@@ -476,6 +519,10 @@ function abrirPainel() {
   carregarAnotacoes();
   carregarConversa();
   verificar();
+  if (!radioIniciado) {
+    radioIniciado = true;
+    iniciarRadio(nucleo, { mapaFalhou: () => mapaFalhou });
+  }
 }
 
 setInterval(atualizarRelogio, 1000);

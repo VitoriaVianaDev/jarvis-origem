@@ -64,8 +64,10 @@ async function chamarGroq(env, modelo, corpo) {
     throw new FalhaDeModelo(e?.name === 'TimeoutError' ? 'o serviço demorou demais para responder' : 'não foi possível conectar ao serviço');
   }
   if (!resposta.ok) {
-    await resposta.body?.cancel();
-    throw new FalhaDeModelo(motivoDoStatus(resposta.status), resposta.status);
+    const detalhe = await resposta.json().catch(() => null);
+    const codigo = detalhe?.error?.code;
+    const complemento = resposta.status !== 429 && /^[a-z_]{1,50}$/.test(codigo ?? '') ? ` (${codigo})` : '';
+    throw new FalhaDeModelo(`${motivoDoStatus(resposta.status)}${complemento}`, resposta.status);
   }
   const limites = {
     pedidosRestantes: resposta.headers.get('x-ratelimit-remaining-requests'),

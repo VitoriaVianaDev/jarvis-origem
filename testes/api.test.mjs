@@ -187,6 +187,9 @@ test('câmera e localização ficam proibidas pelo navegador, em páginas e na A
     const politica = r.headers.get('permissions-policy');
     assert.ok(politica.includes('camera=()'));
     assert.ok(politica.includes('geolocation=()'));
-    assert.ok(r.headers.get('content-security-policy').includes("frame-ancestors 'none'"));
+    const csp = r.headers.get('content-security-policy');
+    assert.ok(csp.includes("frame-ancestors 'none'"));
+    assert.ok(csp.includes('media-src https:'), 'áudio só por conexão segura');
+    assert.ok(csp.includes("script-src 'self';"), 'nenhum script de fora');
   }
 });

@@ -49,27 +49,22 @@
 
   <div id="tela-painel" class="painel-geral" hidden>
     <header class="topo">
-      <div class="marca-bloco">
-        <span class="marca">JARVIS</span>
-        <span class="triangulos" aria-hidden="true"></span>
-      </div>
       <dl class="leituras" aria-label="Situação agora">
         <div><dt>Banco</dt><dd id="leitura-banco">—</dd></div>
         <div><dt>Pedidos hoje</dt><dd id="leitura-pedidos">—</dd></div>
         <div><dt>Tokens hoje</dt><dd id="leitura-tokens">—</dd></div>
       </dl>
-      <div class="relogio">
-        <time id="hora" class="hora"></time>
-        <time id="data" class="data"></time>
-      </div>
+      <div class="marca-bloco"><span class="marca">JARVIS</span></div>
       <button id="sair" type="button" class="botao-discreto">Sair</button>
     </header>
 
     <section id="centro" class="centro" aria-label="Conversa com o JARVIS">
-      <div class="janela-nucleo">
-        <p class="marca-nucleo" aria-hidden="true">JARVIS</p>
+      <div id="janela-nucleo" class="janela-nucleo" aria-hidden="true"></div>
+      <div class="painel-hora">
+        <p id="estado-nome" class="estado-nome" role="status">Em espera</p>
+        <time id="hora" class="hora"></time>
+        <time id="data" class="data"></time>
       </div>
-      <p id="estado-nome" class="estado-nome" role="status">Em espera</p>
       <div id="historico" class="historico" role="log" aria-label="Mensagens da conversa" tabindex="0" hidden></div>
       <p id="erro-conversa" class="mensagem-erro erro-conversa" role="alert"></p>
       <form id="form-conversa" class="barra-conversa" novalidate>
@@ -77,7 +72,10 @@
         <textarea id="mensagem" rows="1" maxlength="4000" placeholder="Fale com o JARVIS" autocomplete="off"></textarea>
         <button id="enviar" type="submit" class="botao-principal">Enviar</button>
       </form>
-      <button id="nova-conversa" type="button" class="botao-discreto" hidden>Nova conversa</button>
+      <div class="acoes-conversa">
+        <button id="ampliar-planeta" type="button" class="botao-discreto" hidden>Ampliar planeta</button>
+        <button id="nova-conversa" type="button" class="botao-discreto" hidden>Nova conversa</button>
+      </div>
     </section>
 
     <aside class="coluna coluna-esquerda">
@@ -86,6 +84,7 @@
           <h2 id="sistema-titulo">Sistema</h2>
           <button id="verificar" type="button" class="botao-discreto">Verificar agora</button>
         </div>
+        <div id="medidor-cota" class="medidor-cota" hidden></div>
         <dl id="diagnostico" class="diagnostico" aria-live="polite"></dl>
         <p id="erro-diagnostico" class="mensagem-erro" role="alert"></p>
       </section>
@@ -101,6 +100,7 @@
         <ul class="modulos">
           <li class="pronto">Acesso e banco</li>
           <li class="pronto">Conversa com IA</li>
+          <li class="pronto">Planeta e rádios</li>
           <li>Memória</li>
           <li>Lembretes e agenda</li>
           <li>Finanças</li>
@@ -114,6 +114,25 @@
     </aside>
 
     <aside class="coluna coluna-direita">
+      <section class="painel painel-radio" aria-labelledby="radio-titulo">
+        <h2 id="radio-titulo">Rádios do mundo</h2>
+        <p id="radio-estado" class="radio-estado" role="status">Carregando rádios…</p>
+        <form id="form-radio" class="busca-radio" role="search" novalidate>
+          <label for="busca-radio" class="so-leitor">Buscar por rádio, cidade ou estado</label>
+          <input id="busca-radio" type="search" placeholder="Rádio, cidade ou estado" autocomplete="off">
+          <button type="submit" class="botao-secundario">Buscar</button>
+        </form>
+        <h3 id="radio-lugar" class="radio-lugar" hidden></h3>
+        <ul id="radio-lista" class="radio-lista"></ul>
+        <div id="radio-player" class="radio-player" hidden>
+          <p id="radio-tocando" class="radio-tocando"></p>
+          <div class="radio-controles">
+            <button id="radio-pausar" type="button" class="botao-secundario">Parar</button>
+            <label for="radio-volume">Volume</label>
+            <input id="radio-volume" type="range" min="0" max="1" step="0.05" value="0.8">
+          </div>
+        </div>
+      </section>
       <section class="painel painel-anotacoes" aria-labelledby="anotacoes-titulo">
         <h2 id="anotacoes-titulo">Anotações</h2>
         <form id="form-anotacao" novalidate>

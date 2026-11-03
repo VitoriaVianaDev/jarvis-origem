@@ -20,7 +20,7 @@ const MAX_ANOTACAO = 2000;
 
 const CABECALHOS_SEGURANCA = {
   'Content-Security-Policy':
-    "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://*.api.radio-browser.info; media-src https:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   // O navegador impede o uso da câmera e da localização por este site.
   'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self)',
   'Strict-Transport-Security': 'max-age=31536000',
