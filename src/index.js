@@ -12,6 +12,9 @@ import {
   verificarBloqueio,
 } from './autenticacao.js';
 
+import { conversaAtual, historicoParaTela, iniciarNovaConversa, responder, TAMANHO_MAXIMO_MENSAGEM } from './ia/orquestrador.js';
+import { resumoDeUso, testarModelos } from './ia/provedores.js';
+
 const MAX_CORPO_BYTES = 64 * 1024;
 const MAX_ANOTACAO = 2000;
 
@@ -68,7 +71,35 @@ function estadoDaConfiguracao(env) {
   return { senhaConfigurada: senhaConfigurada(env), bancoConectado: Boolean(env.DB) };
 }
 
-async function rotear(request, env, url) {
+// Envia uma linha JSON por evento, para o núcleo mudar de estado conforme o trabalho avança.
+function transmitirResposta(env, texto, ctx) {
+  const { readable, writable } = new TransformStream();
+  const escritor = writable.getWriter();
+  const codificador = new TextEncoder();
+  const emitir = async (evento) => {
+    try {
+      await escritor.write(codificador.encode(`${JSON.stringify(evento)}\n`));
+    } catch {
+      // A pessoa fechou a página; o trabalho termina mesmo assim.
+    }
+  };
+  const trabalho = (async () => {
+    try {
+      await responder(env, texto, emitir);
+    } catch (falha) {
+      console.error('Falha na conversa', falha);
+      await emitir({ tipo: 'erro', mensagem: 'O servidor encontrou um erro ao processar a conversa.' });
+    } finally {
+      await escritor.close().catch(() => {});
+    }
+  })();
+  ctx?.waitUntil?.(trabalho);
+  return new Response(readable, {
+    headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
+async function rotear(request, env, url, ctx) {
   const { pathname: caminho } = url;
   const metodo = request.method;
 
@@ -129,9 +160,34 @@ async function rotear(request, env, url) {
     return json({
       banco: { gravouELeu: lido?.id === id, milissegundos: Date.now() - inicio },
       anotacoes: total.total,
+      ia: await resumoDeUso(env),
       sessaoExpiraEm: sessao.expira_em,
       verificadoEm: Date.now(),
     });
+  }
+
+  if (caminho === '/api/diagnostico/ia' && metodo === 'POST') {
+    return json({ modelos: await testarModelos(env), verificadoEm: Date.now() });
+  }
+
+  if (caminho === '/api/conversa' && metodo === 'GET') {
+    const conversaId = await conversaAtual(env.DB);
+    return json({ conversaId, mensagens: await historicoParaTela(env.DB, conversaId) });
+  }
+
+  if (caminho === '/api/conversa/nova' && metodo === 'POST') {
+    return json({ conversaId: await iniciarNovaConversa(env.DB) });
+  }
+
+  if (caminho === '/api/conversa' && metodo === 'POST') {
+    const { dados, falha } = await lerJson(request);
+    if (falha) return falha;
+    const texto = typeof dados.texto === 'string' ? dados.texto.trim() : '';
+    if (!texto) return erro(400, 'texto_vazio', 'Escreva algo antes de enviar.');
+    if (texto.length > TAMANHO_MAXIMO_MENSAGEM) {
+      return erro(400, 'texto_longo', `Use no máximo ${TAMANHO_MAXIMO_MENSAGEM} caracteres.`);
+    }
+    return transmitirResposta(env, texto, ctx);
   }
 
   if (caminho === '/api/anotacoes' && metodo === 'GET') {
@@ -168,13 +224,13 @@ async function rotear(request, env, url) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       return comSeguranca(await env.ASSETS.fetch(request));
     }
     try {
-      return comSeguranca(await rotear(request, env, url));
+      return comSeguranca(await rotear(request, env, url, ctx));
     } catch (falha) {
       console.error('Falha ao atender', url.pathname, falha);
       return comSeguranca(erro(500, 'falha_interna', 'O servidor encontrou um erro ao processar o pedido.'));

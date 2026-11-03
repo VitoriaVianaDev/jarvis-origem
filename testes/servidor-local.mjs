@@ -10,8 +10,25 @@ const raiz = new URL('..', import.meta.url).pathname;
 const porta = Number(process.env.PORTA ?? 8787);
 mkdirSync(join(raiz, '.local'), { recursive: true });
 
+// Só para testes neste computador: imita a Groq, sem nenhuma chamada real.
+if (process.env.SIMULAR_IA) {
+  globalThis.fetch = async (url, op) => {
+    const corpo = JSON.parse(op.body);
+    const ultima = corpo.messages.at(-1);
+    await new Promise((r) => setTimeout(r, 700));
+    if (ultima.content.includes('cota')) return new Response('{}', { status: 429 });
+    const mensagem = ultima.role === 'user' && ultima.content.startsWith('anote')
+      ? { content: '', tool_calls: [{ id: 'c1', function: { name: 'salvar_anotacao', arguments: JSON.stringify({ texto: ultima.content.slice(6) }) } }] }
+      : { content: ultima.role === 'tool' ? 'Anotado.' : `Resposta simulada para teste. Você escreveu: ${ultima.content}` };
+    return new Response(JSON.stringify({ choices: [{ message: mensagem }], usage: { prompt_tokens: 300, completion_tokens: 40 } }), {
+      headers: { 'x-ratelimit-remaining-requests': '990', 'x-ratelimit-limit-requests': '1000' },
+    });
+  };
+}
+
 const env = {
   JARVIS_SENHA: process.env.JARVIS_SENHA,
+  GROQ_API_KEY: process.env.SIMULAR_IA ? 'simulada' : process.env.GROQ_API_KEY,
   DB: process.env.SEM_BANCO ? undefined : criarD1Local(process.env.BANCO ?? join(raiz, '.local/banco.sqlite')),
   ASSETS: {
     async fetch(request) {
@@ -31,5 +48,6 @@ createServer(async (req, res) => {
   const request = new Request(`http://localhost:${porta}${req.url}`, { method: req.method, headers: req.headers, body: corpo });
   const resposta = await worker.fetch(request, env);
   res.writeHead(resposta.status, Object.fromEntries(resposta.headers));
-  res.end(Buffer.from(await resposta.arrayBuffer()));
+  if (resposta.body) for await (const parte of resposta.body) res.write(parte);
+  res.end();
 }).listen(porta, () => console.log(`JARVIS de teste em http://localhost:${porta}`));

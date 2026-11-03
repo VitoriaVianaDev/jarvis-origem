@@ -57,21 +57,19 @@
       <button id="sair" type="button" class="botao-discreto">Sair</button>
     </header>
 
-    <section class="centro" aria-label="Núcleo do JARVIS">
+    <section id="centro" class="centro" aria-label="Conversa com o JARVIS">
       <div class="janela-nucleo">
         <p class="marca-nucleo" aria-hidden="true">JARVIS</p>
       </div>
       <p id="estado-nome" class="estado-nome" role="status">Em espera</p>
-      <fieldset class="seletor-estados">
-        <legend>Veja como o núcleo reage em cada estado. A IA passa a controlá-lo na etapa 2.</legend>
-        <div class="opcoes-estado">
-          <label><input type="radio" name="estado" value="espera" checked><span>Em espera</span></label>
-          <label><input type="radio" name="estado" value="ouvindo"><span>Ouvindo</span></label>
-          <label><input type="radio" name="estado" value="processando"><span>Processando</span></label>
-          <label><input type="radio" name="estado" value="respondendo"><span>Respondendo</span></label>
-          <label><input type="radio" name="estado" value="executando"><span>Executando</span></label>
-        </div>
-      </fieldset>
+      <div id="historico" class="historico" role="log" aria-label="Mensagens da conversa" tabindex="0" hidden></div>
+      <p id="erro-conversa" class="mensagem-erro erro-conversa" role="alert"></p>
+      <form id="form-conversa" class="barra-conversa" novalidate>
+        <label for="mensagem" class="so-leitor">Sua mensagem</label>
+        <textarea id="mensagem" rows="1" maxlength="4000" placeholder="Fale com o JARVIS" autocomplete="off"></textarea>
+        <button id="enviar" type="submit" class="botao-principal">Enviar</button>
+      </form>
+      <button id="nova-conversa" type="button" class="botao-discreto" hidden>Nova conversa</button>
     </section>
 
     <aside class="coluna coluna-esquerda">
@@ -82,12 +80,17 @@
         </div>
         <dl id="diagnostico" class="diagnostico" aria-live="polite"></dl>
         <p id="erro-diagnostico" class="mensagem-erro" role="alert"></p>
+        <div class="painel-cabecalho subtitulo-ia">
+          <h3>Inteligência artificial</h3>
+          <button id="testar-ia" type="button" class="botao-discreto">Testar IA</button>
+        </div>
+        <dl id="diagnostico-ia" class="diagnostico"></dl>
       </section>
       <section class="painel" aria-labelledby="etapas-titulo">
         <h2 id="etapas-titulo">O que já funciona</h2>
         <ul class="etapas">
           <li class="pronta">Acesso com senha e banco de dados</li>
-          <li>Conversa com IA</li>
+          <li class="pronta">Conversa com IA</li>
           <li>Memória</li>
           <li>Lembretes, tarefas e agenda</li>
           <li>Finanças</li>

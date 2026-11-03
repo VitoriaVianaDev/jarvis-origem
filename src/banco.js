@@ -22,6 +22,33 @@ const MIGRACOES = [
        criado_em INTEGER NOT NULL
      )`,
   ],
+  [
+    `CREATE TABLE mensagens (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       conversa_id TEXT NOT NULL,
+       papel TEXT NOT NULL,
+       conteudo TEXT NOT NULL,
+       modelo TEXT,
+       acoes TEXT,
+       criada_em INTEGER NOT NULL
+     )`,
+    `CREATE INDEX idx_mensagens_conversa ON mensagens (conversa_id, id)`,
+    `CREATE TABLE uso_ia (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       dia TEXT NOT NULL,
+       modelo TEXT NOT NULL,
+       tokens_entrada INTEGER NOT NULL,
+       tokens_saida INTEGER NOT NULL,
+       milissegundos INTEGER NOT NULL,
+       resultado TEXT NOT NULL,
+       criado_em INTEGER NOT NULL
+     )`,
+    `CREATE INDEX idx_uso_dia ON uso_ia (dia)`,
+    `CREATE TABLE ajustes (
+       chave TEXT PRIMARY KEY,
+       valor TEXT NOT NULL
+     )`,
+  ],
 ];
 
 const preparados = new WeakSet();
