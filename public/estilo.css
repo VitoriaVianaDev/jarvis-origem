@@ -107,9 +107,9 @@ button:disabled { opacity: .55; cursor: progress; }
 .painel-geral {
   position: relative; z-index: 1; min-height: 100dvh; padding: 10px 16px 14px;
   display: grid; gap: 12px 16px;
-  grid-template-columns: minmax(270px, 310px) minmax(340px, 1fr) minmax(270px, 310px);
+  grid-template-columns: var(--largura-esq, 300px) minmax(320px, 1fr) var(--largura-dir, 300px);
   grid-template-rows: auto 1fr;
-  grid-template-areas: 'topo topo topo' 'esquerda centro direita';
+  grid-template-areas: 'topo topo topo' 'esquerda centro direita' 'barra barra barra';
 }
 .painel-geral::before {
   content: ''; position: absolute; inset: 3px; pointer-events: none; z-index: -1; background: var(--linha-forte);
@@ -199,7 +199,7 @@ button:disabled { opacity: .55; cursor: progress; }
 
 /* Em janelas largas, a tela inteira cabe na altura e só as colunas laterais rolam */
 @media (min-width: 1081px) {
-  .painel-geral { height: 100dvh; min-height: 620px; grid-template-rows: auto minmax(0, 1fr); }
+  .painel-geral { height: 100dvh; min-height: 620px; grid-template-rows: auto minmax(0, 1fr) auto; }
   .coluna { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--linha) transparent; }
   .coluna > * { flex: none; }
   .centro { height: auto; min-height: 0; }
@@ -208,7 +208,7 @@ button:disabled { opacity: .55; cursor: progress; }
 @media (max-width: 1080px) {
   .painel-geral {
     grid-template-columns: minmax(0, 1fr); padding: 10px 14px 20px;
-    grid-template-areas: 'topo' 'centro' 'direita' 'esquerda'; grid-template-rows: auto auto auto auto;
+    grid-template-areas: 'topo' 'centro' 'direita' 'esquerda' 'barra'; grid-template-rows: auto auto auto auto auto;
   }
   .topo { padding: 0 12px; gap: 10px; }
   .leituras { gap: 12px; }
@@ -263,7 +263,7 @@ button:disabled { opacity: .55; cursor: progress; }
 .planeta-abrir { position: absolute; inset: 0; background: transparent; border: 0; cursor: zoom-in; }
 .planeta-abrir:hover { background: radial-gradient(circle, rgba(46, 224, 238, .14), transparent 62%); }
 .planeta-cartao.expandido {
-  position: fixed; z-index: 20; top: 58px; bottom: 14px; left: 14px; right: 340px; flex: 1;
+  position: fixed; z-index: 20; top: 58px; bottom: 14px; left: 14px; right: calc(var(--largura-dir, 300px) + 32px); flex: 1; height: auto !important;
   display: flex; flex-direction: column; background: #01100f;
 }
 .planeta-cartao.expandido .planeta-area { flex: 1; height: auto; min-height: 0; }
@@ -277,8 +277,38 @@ button:disabled { opacity: .55; cursor: progress; }
 .opcao-escuta input { width: 16px; height: 16px; accent-color: var(--ciano); }
 .voz-nota { font-size: 12px; color: var(--texto-suave); }
 @media (min-width: 1081px) {
-  .coluna-direita { overflow: hidden; }
+  .coluna-direita { overflow: hidden auto; scrollbar-width: thin; }
   .coluna-direita > .painel-radio { flex: 0 1 auto; min-height: 0; overflow: hidden; }
   .coluna-direita > .planeta-cartao { flex: none; margin-top: auto; }
   .painel-radio .radio-lista { flex: 1 1 auto; min-height: 0; max-height: none; }
 }
+
+/* Fala */
+.controle-fala { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 10px; font-size: 12.5px; color: var(--texto-suave); }
+.controle-fala input { width: 100%; min-width: 0; accent-color: var(--ciano); }
+
+/* Cartões: esconder, mostrar e redimensionar */
+.barra-cartoes { grid-area: barra; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 0 14px; }
+.barra-cartoes button { min-height: 26px; padding: 2px 9px; font-size: 12.5px; color: #7fa7ae; background: rgba(1, 10, 15, .7); border: 1px solid var(--linha); }
+.barra-cartoes button[aria-pressed='true'] { color: var(--ciano); border-color: var(--linha-forte); background: rgba(46, 224, 238, .1); }
+.barra-cartoes .restaurar { margin-left: auto; color: var(--texto-suave); }
+[data-cartao] .fechar-cartao {
+  position: absolute; top: 5px; right: 13px; width: 20px; height: 20px; padding: 0; line-height: 18px; font-size: 13px;
+  color: var(--texto-suave); background: transparent; border: 0; z-index: 2;
+}
+[data-cartao] .fechar-cartao:hover { color: var(--gelo); }
+[data-cartao] .painel-cabecalho { padding-right: 16px; }
+.planeta-cartao.expandido .fechar-cartao, .planeta-cartao.expandido .puxador-altura { display: none; }
+.puxador-altura { position: absolute; left: 14px; right: 14px; bottom: 0; height: 8px; cursor: ns-resize; touch-action: none; z-index: 2; }
+.puxador-altura::after { content: ''; position: absolute; left: 50%; bottom: 2px; width: 28px; margin-left: -14px; height: 2px; background: var(--linha-forte); opacity: 0; }
+[data-cartao]:hover .puxador-altura::after, .puxador-altura:focus-visible::after { opacity: 1; }
+.com-altura { display: flex; flex-direction: column; overflow: auto; flex: none !important; }
+.com-altura > * { flex: none; }
+.com-altura .planeta-area { flex: 1 1 auto; height: auto; min-height: 70px; }
+.coluna { position: relative; }
+.puxador-coluna { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; touch-action: none; z-index: 3; }
+.coluna-esquerda .puxador-coluna { right: 0; }
+.coluna-direita .puxador-coluna { left: 0; }
+.puxador-coluna:hover, .puxador-coluna:focus-visible { background: rgba(46, 224, 238, .22); }
+.coluna-vazia { display: none; }
+@media (max-width: 1080px) { .puxador-coluna { display: none; } .barra-cartoes { padding: 0; } }

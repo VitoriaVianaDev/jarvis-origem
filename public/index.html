@@ -70,8 +70,8 @@
       <button id="falar" type="button" class="botao-falar">Falar com o JARVIS</button>
     </section>
 
-    <aside class="coluna coluna-esquerda">
-      <section class="painel" aria-labelledby="sistema-titulo">
+    <aside id="coluna-esquerda" class="coluna coluna-esquerda">
+      <section class="painel" data-cartao="sistema" aria-labelledby="sistema-titulo">
         <div class="painel-cabecalho">
           <h2 id="sistema-titulo">Sistema</h2>
           <button id="verificar" type="button" class="botao-discreto">Verificar agora</button>
@@ -80,16 +80,22 @@
         <dl id="diagnostico" class="diagnostico" aria-live="polite"></dl>
         <p id="erro-diagnostico" class="mensagem-erro" role="alert"></p>
       </section>
-      <section class="painel painel-voz" aria-labelledby="voz-titulo">
+      <section class="painel painel-voz" data-cartao="voz" aria-labelledby="voz-titulo">
         <h2 id="voz-titulo">Voz do JARVIS</h2>
         <label for="voz-escolha" class="so-leitor">Escolher a voz</label>
         <select id="voz-escolha"></select>
         <p id="voz-aviso" class="voz-aviso"></p>
         <label class="opcao-escuta"><input id="escuta-ligada" type="checkbox"> Responder a “Ei, Jarvis”</label>
+        <div class="controle-fala">
+          <label for="voz-velocidade">Velocidade</label>
+          <input id="voz-velocidade" type="range" min="0.7" max="1.4" step="0.05" value="1">
+          <label for="voz-tom">Tom</label>
+          <input id="voz-tom" type="range" min="0.5" max="1.5" step="0.05" value="1">
+        </div>
         <p class="voz-nota">Enquanto ligado, o microfone fica aberto e o Chrome envia o áudio ao Google para reconhecer a fala. Mantenha o JARVIS aberto.</p>
         <button id="voz-exemplo" type="button" class="botao-secundario">Ouvir exemplo</button>
       </section>
-      <section class="painel painel-anotacoes" aria-labelledby="anotacoes-titulo">
+      <section class="painel painel-anotacoes" data-cartao="anotacoes" aria-labelledby="anotacoes-titulo">
         <h2 id="anotacoes-titulo">Anotações</h2>
         <form id="form-anotacao" novalidate>
           <label for="anotacao" class="so-leitor">Nova anotação</label>
@@ -100,7 +106,7 @@
         <ul id="lista-anotacoes" class="lista-anotacoes"></ul>
         <p id="sem-anotacoes" class="vazio" hidden>Nenhuma anotação salva ainda.</p>
       </section>
-      <section class="painel" aria-labelledby="modelos-titulo">
+      <section class="painel" data-cartao="modelos" aria-labelledby="modelos-titulo">
         <div class="painel-cabecalho">
           <h2 id="modelos-titulo">Modelos de IA</h2>
           <button id="testar-ia" type="button" class="botao-discreto">Testar IA</button>
@@ -108,11 +114,11 @@
         <ul id="lista-modelos" class="lista-modelos"></ul>
         <button id="nova-conversa" type="button" class="botao-discreto">Começar nova conversa</button>
       </section>
-      <section class="painel" aria-labelledby="uso-titulo">
+      <section class="painel" data-cartao="uso" aria-labelledby="uso-titulo">
         <h2 id="uso-titulo">Tokens de IA por hora, hoje</h2>
         <div id="grafico-uso" class="grafico-uso"></div>
       </section>
-      <section class="painel" aria-labelledby="modulos-titulo">
+      <section class="painel" data-cartao="modulos" aria-labelledby="modulos-titulo">
         <h2 id="modulos-titulo">Módulos</h2>
         <ul class="modulos">
           <li class="pronto">Acesso e banco</li>
@@ -130,13 +136,13 @@
       </section>
     </aside>
 
-    <aside class="coluna coluna-direita">
-      <section class="painel painel-radio" aria-labelledby="radio-titulo">
+    <aside id="coluna-direita" class="coluna coluna-direita">
+      <section class="painel painel-radio" data-cartao="radio" aria-labelledby="radio-titulo">
         <h2 id="radio-titulo">Rádios do mundo</h2>
         <p id="radio-estado" class="radio-estado" role="status">Carregando rádios…</p>
         <form id="form-radio" class="busca-radio" role="search" novalidate>
           <label for="busca-radio" class="so-leitor">Buscar por rádio, cidade ou estado</label>
-          <input id="busca-radio" type="search" placeholder="Rádio, cidade ou estado" autocomplete="off">
+          <input id="busca-radio" type="search" placeholder="Rádio ou lugar" autocomplete="off">
           <button type="submit" class="botao-secundario">Buscar</button>
         </form>
         <h3 id="radio-lugar" class="radio-lugar" hidden></h3>
@@ -150,7 +156,7 @@
           </div>
         </div>
       </section>
-      <section id="planeta-cartao" class="painel planeta-cartao" aria-labelledby="planeta-titulo">
+      <section id="planeta-cartao" class="painel planeta-cartao" data-cartao="planeta" aria-labelledby="planeta-titulo">
         <div class="painel-cabecalho">
           <h2 id="planeta-titulo">Planeta</h2>
           <button id="planeta-fechar" type="button" class="botao-secundario" hidden>Voltar ao JARVIS</button>
@@ -161,6 +167,7 @@
         </div>
       </section>
     </aside>
+    <nav id="barra-cartoes" class="barra-cartoes" aria-label="Escolher os cartões da tela"></nav>
   </div>
 
   <script type="module" src="/app.js"></script>

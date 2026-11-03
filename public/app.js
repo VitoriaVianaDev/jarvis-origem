@@ -2,6 +2,7 @@ import { criarNucleo } from './nucleo.js';
 import { criarPlaneta } from './globo.js';
 import { carregarMapa } from './planeta.js';
 import { iniciarRadio } from './radio.js';
+import { iniciarLayout } from './layout.js';
 import { criarEscuta, criarVoz } from './voz.js';
 
 const $ = (id) => document.getElementById(id);
@@ -361,6 +362,9 @@ function atualizarDica() {
   $('dica-escuta').textContent = escuta?.ligada() ? 'Diga: Ei, Jarvis' : 'Pronto para comandos';
 }
 
+iniciarLayout({ aoMudar: () => nucleo.reposicionar() });
+new ResizeObserver(() => nucleo.reposicionar()).observe($('janela-nucleo'));
+
 const voz = criarVoz({
   aoOuvirParcial: (texto) => legenda(texto),
   aoOuvir: (texto) => enviarMensagem(texto),
@@ -444,7 +448,23 @@ preencherVozes();
 $('voz-escolha').addEventListener('change', (e) => voz.escolherVoz(e.target.value));
 $('voz-exemplo').addEventListener('click', () => voz.falar('Às suas ordens. Todos os sistemas estão funcionando.', () => {}));
 
+function lerAjustesFala() {
+  try { return JSON.parse(localStorage.getItem('jarvis-fala')) ?? {}; } catch { return {}; }
+}
+function aplicarFala() {
+  const velocidade = Number($('voz-velocidade').value), tom = Number($('voz-tom').value);
+  voz.ajustarFala(velocidade, tom);
+  try { localStorage.setItem('jarvis-fala', JSON.stringify({ velocidade, tom })); } catch { /* só nesta sessão */ }
+}
+const falaSalva = lerAjustesFala();
+if (falaSalva.velocidade) $('voz-velocidade').value = falaSalva.velocidade;
+if (falaSalva.tom) $('voz-tom').value = falaSalva.tom;
+voz.ajustarFala(Number($('voz-velocidade').value), Number($('voz-tom').value));
+$('voz-velocidade').addEventListener('change', aplicarFala);
+$('voz-tom').addEventListener('change', aplicarFala);
+
 function aoResponder(texto) {
+  $('dica-escuta').textContent = '';
   definirEstado('respondendo');
   $('falar').textContent = 'Interromper e falar';
   legenda(texto);
@@ -473,6 +493,7 @@ async function enviarMensagem(texto) {
   conversando = true;
   $('falar').disabled = true;
   $('falar').textContent = 'Processando…';
+  $('dica-escuta').textContent = '';
   definirEstado('processando');
   legenda(texto);
 
@@ -532,6 +553,7 @@ $('falar').addEventListener('click', async () => {
   controleRadio?.abaixar(true);
   legenda('Pode falar…');
   definirEstado('ouvindo');
+  $('dica-escuta').textContent = 'Estou ouvindo';
   $('falar').textContent = 'Ouvindo. Clique para encerrar';
   voz.ouvir();
 });

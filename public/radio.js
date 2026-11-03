@@ -29,6 +29,12 @@ export function limparEstacoes(lista) {
 }
 
 // Agrupa rádios próximas (cerca de 25 km) em um único ponto do mapa.
+// Abaixo de 64 kbps, o som costuma sair metálico: estas rádios vão para o fim da lista.
+export function ordenarPorQualidade(estacoes) {
+  const baixa = (r) => Number(r.bitrate) > 0 && Number(r.bitrate) < 64;
+  return [...estacoes].sort((a, b) => Number(baixa(a)) - Number(baixa(b)));
+}
+
 export function agruparPorLugar(estacoes) {
   const grupos = new Map();
   for (const r of estacoes) {
@@ -55,7 +61,8 @@ export function agruparPorLugar(estacoes) {
 }
 
 function descricao(r) {
-  return [r.state, r.countrycode || r.country, r.bitrate ? `${r.bitrate} kbps` : '', r.codec].filter(Boolean).join(', ');
+  const baixa = Number(r.bitrate) > 0 && Number(r.bitrate) < 64;
+  return [r.state, r.countrycode || r.country, r.bitrate ? `${r.bitrate} kbps${baixa ? ' (som mais fraco)' : ''}` : '', r.codec].filter(Boolean).join(', ');
 }
 
 export function iniciarRadio(nucleo, { mapaFalhou }) {
@@ -64,7 +71,7 @@ export function iniciarRadio(nucleo, { mapaFalhou }) {
   audio.volume = Number($('radio-volume').value);
   let tocando = null;
   let abaixado = false;
-  const aplicarVolume = () => { audio.volume = Number($('radio-volume').value) * (abaixado ? .12 : 1); };
+  const aplicarVolume = () => { audio.volume = Number($('radio-volume').value) * (abaixado ? .06 : 1); };
 
   const estado = (texto) => { $('radio-estado').textContent = texto; };
 
@@ -85,6 +92,29 @@ export function iniciarRadio(nucleo, { mapaFalhou }) {
     consultar(`/json/url/${encodeURIComponent(estacao.stationuuid)}`).catch(() => {});
   }
 
+  // Se a transmissão travar, tenta reconectar algumas vezes antes de avisar.
+  let temporizadorTrava = 0, tentativas = 0;
+  const vigiarTrava = () => {
+    clearTimeout(temporizadorTrava);
+    if (!tocando || !audio.getAttribute('src')) return;
+    $('radio-tocando').textContent = `Reconectando a ${tocando.name}…`;
+    temporizadorTrava = setTimeout(() => {
+      if (!tocando || !audio.getAttribute('src') || !audio.paused && audio.readyState >= 3) return;
+      if (tentativas >= 2) {
+        $('radio-tocando').textContent = `${tocando.name} está instável agora. Escolha outra rádio.`;
+        return;
+      }
+      tentativas += 1;
+      audio.load();
+      audio.play().catch(() => {});
+    }, 7000);
+  };
+  audio.addEventListener('waiting', vigiarTrava);
+  audio.addEventListener('stalled', vigiarTrava);
+  audio.addEventListener('playing', () => {
+    clearTimeout(temporizadorTrava);
+    tentativas = 0;
+  });
   audio.addEventListener('playing', () => {
     if (tocando) $('radio-tocando').textContent = `Tocando: ${tocando.name}`;
     $('radio-pausar').textContent = 'Parar';
@@ -109,7 +139,7 @@ export function iniciarRadio(nucleo, { mapaFalhou }) {
   function mostrarLista(titulo, estacoes) {
     $('radio-lugar').textContent = titulo;
     $('radio-lugar').hidden = false;
-    $('radio-lista').replaceChildren(...estacoes.slice(0, 60).map((r) => {
+    $('radio-lista').replaceChildren(...ordenarPorQualidade(estacoes).slice(0, 60).map((r) => {
       const li = document.createElement('li');
       const botao = document.createElement('button');
       botao.type = 'button';

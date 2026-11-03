@@ -84,3 +84,23 @@ test('"Ei, Jarvis" é reconhecido em variações, sem disparar em outras palavra
   assert.deepEqual(extrairChamado('então ei jarvis olha'), { comando: 'olha' });
   for (const texto of ['bom dia', 'Travis Scott', 'jarvisão', 'o jardim']) assert.equal(extrairChamado(texto), null, texto);
 });
+
+test('voz natural masculina vem primeiro, e rádio de som fraco vai para o fim', async () => {
+  const { escolherMelhorVoz } = await import('../public/voz.js');
+  const { ordenarPorQualidade } = await import('../public/radio.js');
+  const vozes = [
+    { name: 'Microsoft Daniel', lang: 'pt-BR', voiceURI: 'd' },
+    { name: 'Microsoft Francisca Online (Natural)', lang: 'pt-BR', voiceURI: 'f' },
+    { name: 'Microsoft Antonio Online (Natural)', lang: 'pt-BR', voiceURI: 'a' },
+  ];
+  assert.equal(escolherMelhorVoz(vozes, null).voiceURI, 'a');
+  const lista = ordenarPorQualidade([{ n: 1, bitrate: 32 }, { n: 2, bitrate: 128 }, { n: 3, bitrate: 0 }]);
+  assert.deepEqual(lista.map((r) => r.n), [2, 3, 1]);
+});
+
+test('tamanho dos cartões respeita limites', async () => {
+  const { limitar } = await import('../public/layout.js');
+  assert.equal(limitar(100, 220, 640), 220);
+  assert.equal(limitar(900, 220, 640), 640);
+  assert.equal(limitar(300, 220, 640), 300);
+});

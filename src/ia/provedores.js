@@ -2,8 +2,8 @@
 // Todos são chamados no formato de chat compatível com OpenAI.
 const MODELOS = [
   { id: 'openai/gpt-oss-120b', nome: 'GPT OSS 120B', provedor: 'groq', extra: { reasoning_effort: 'low' } },
-  { id: 'llama-3.3-70b-versatile', nome: 'Llama 3.3 70B', provedor: 'groq' },
-  { id: 'llama-3.1-8b-instant', nome: 'Llama 3.1 8B', provedor: 'groq' },
+  { id: 'openai/gpt-oss-20b', nome: 'GPT OSS 20B', provedor: 'groq', extra: { reasoning_effort: 'low' } },
+  { id: 'qwen/qwen3.8-27b', nome: 'Qwen 3.8 27B', provedor: 'groq' },
   { id: '@cf/zai-org/glm-4.7-flash', nome: 'GLM 4.7 Flash', provedor: 'workers-ai' },
 ];
 

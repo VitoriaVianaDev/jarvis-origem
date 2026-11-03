@@ -41,7 +41,39 @@ export function escolherMelhorVoz(vozes, preferida) {
   if (salva) return salva;
   const brasil = vozes.filter((v) => /^pt[-_]br/i.test(v.lang));
   const portugues = brasil.length ? brasil : vozes;
-  return portugues.find((v) => MASCULINAS.test(v.name)) ?? portugues[0] ?? null;
+  const natural = (v) => /natural|neural|online/i.test(v.name);
+  return portugues.find((v) => natural(v) && MASCULINAS.test(v.name))
+    ?? portugues.find((v) => MASCULINAS.test(v.name))
+    ?? portugues.find(natural)
+    ?? portugues[0] ?? null;
+}
+
+// Microfone com cancelamento de eco, para retirar o som que o próprio navegador está tocando.
+let trilha = null;
+export async function obterMicrofone() {
+  if (trilha?.readyState === 'live') return trilha;
+  if (!navigator.mediaDevices?.getUserMedia) return null;
+  const fluxo = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
+  trilha = fluxo.getAudioTracks()[0] ?? null;
+  return trilha;
+}
+export function soltarMicrofone() {
+  trilha?.stop();
+  trilha = null;
+}
+
+function iniciarComTrilha(reconhecedor, faixa) {
+  if (faixa) {
+    try {
+      reconhecedor.start(faixa);
+      return;
+    } catch {
+      // Navegador sem suporte a microfone próprio: usa o padrão.
+    }
+  }
+  reconhecedor.start();
 }
 
 const MENSAGENS_ERRO = {
@@ -55,7 +87,7 @@ const MENSAGENS_ERRO = {
 // Escuta contínua pelo "Ei, Jarvis". Só roda quando a pessoa liga a opção.
 export function criarEscuta({ aoChamar, aoParcial, aoComando, aoDesistir, aoFalhar }) {
   const Reconhecimento = globalThis.SpeechRecognition ?? globalThis.webkitSpeechRecognition;
-  let ativa = false, pausada = false, acordada = false, rec = null, fimRec = null;
+  let ativa = false, pausada = false, acordada = false, rec = null, fimRec = null, preparando = false;
   let tempo = 0, falhasDeRede = 0;
 
   const dormir = () => { acordada = false; clearTimeout(tempo); };
@@ -64,7 +96,22 @@ export function criarEscuta({ aoChamar, aoParcial, aoComando, aoDesistir, aoFalh
     tempo = setTimeout(() => { dormir(); aoDesistir(); }, 7000);
   };
 
-  function iniciar() {
+  async function iniciar() {
+    if (!ativa || pausada || rec || preparando) return;
+    preparando = true;
+    let faixa = null;
+    try {
+      faixa = await obterMicrofone();
+    } catch (e) {
+      preparando = false;
+      if (e?.name === 'NotAllowedError') {
+        ativa = false;
+        dormir();
+        aoFalhar(MENSAGENS_ERRO['not-allowed']);
+        return;
+      }
+    }
+    preparando = false;
     if (!ativa || pausada || rec) return;
     const r = new Reconhecimento();
     rec = r;
@@ -122,7 +169,7 @@ export function criarEscuta({ aoChamar, aoParcial, aoComando, aoDesistir, aoFalh
       setTimeout(iniciar, falhasDeRede ? 3000 : 250);
     };
     try {
-      r.start();
+      iniciarComTrilha(r, faixa);
     } catch {
       rec = null;
       setTimeout(iniciar, 1000);
@@ -139,7 +186,7 @@ export function criarEscuta({ aoChamar, aoParcial, aoComando, aoDesistir, aoFalh
     disponivel: Boolean(Reconhecimento),
     ligada: () => ativa,
     ligar() { ativa = true; pausada = false; falhasDeRede = 0; iniciar(); },
-    async desligar() { ativa = false; dormir(); await aguardarFim(); },
+    async desligar() { ativa = false; dormir(); await aguardarFim(); soltarMicrofone(); },
     async pausar() { pausada = true; dormir(); await aguardarFim(); },
     retomar() { pausada = false; iniciar(); },
   };
@@ -151,6 +198,7 @@ export function criarVoz({ aoOuvirParcial, aoOuvir, aoFalhar, aoTerminarSemFala 
   let reconhecedor = null;
   let vozEscolhida = null;
   let geracao = 0;
+  let velocidade = 1, tom = 1;
   const aoMudar = new Set();
 
   const vozesEmPortugues = () => (sintese?.getVoices() ?? []).filter((v) => /^pt/i.test(v.lang));
@@ -170,11 +218,21 @@ export function criarVoz({ aoOuvirParcial, aoOuvir, aoFalhar, aoTerminarSemFala 
       salvarPreferencia(uri);
       vozEscolhida = vozesEmPortugues().find((v) => v.voiceURI === uri) ?? vozEscolhida;
     },
+    ajustarFala(novaVelocidade, novoTom) { velocidade = novaVelocidade; tom = novoTom; },
     ouvindo: () => Boolean(reconhecedor),
-    ouvir() {
+    async ouvir() {
       if (!Reconhecimento) {
         aoFalhar('Este navegador não reconhece voz. Abra o JARVIS no Google Chrome.');
         return;
+      }
+      let faixa = null;
+      try {
+        faixa = await obterMicrofone();
+      } catch (e) {
+        if (e?.name === 'NotAllowedError') {
+          aoFalhar(MENSAGENS_ERRO['not-allowed']);
+          return;
+        }
       }
       const r = new Reconhecimento();
       reconhecedor = r;
@@ -204,7 +262,7 @@ export function criarVoz({ aoOuvirParcial, aoOuvir, aoFalhar, aoTerminarSemFala 
         else aoTerminarSemFala();
       };
       try {
-        r.start();
+        iniciarComTrilha(r, faixa);
       } catch {
         reconhecedor = null;
         aoFalhar('Não foi possível ligar o microfone. Tente de novo.');
@@ -220,15 +278,16 @@ export function criarVoz({ aoOuvirParcial, aoOuvir, aoFalhar, aoTerminarSemFala 
       geracao += 1;
       const esta = geracao;
       sintese.cancel();
-      const partes = dividirEmFrases(texto);
+      // Vozes locais leem o texto inteiro, sem pausas; só as vozes on-line precisam ser divididas.
+      const partes = vozEscolhida?.localService ? [texto] : dividirEmFrases(texto, 220);
       const proxima = (i) => {
         if (esta !== geracao) return;
         if (i >= partes.length) { aoTerminar(); return; }
         const u = new SpeechSynthesisUtterance(partes[i]);
         u.lang = vozEscolhida?.lang ?? 'pt-BR';
         if (vozEscolhida) u.voice = vozEscolhida;
-        u.rate = 1;
-        u.pitch = .9;
+        u.rate = velocidade;
+        u.pitch = tom;
         u.onend = () => proxima(i + 1);
         u.onerror = () => proxima(i + 1);
         sintese.speak(u);

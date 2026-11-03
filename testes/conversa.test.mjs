@@ -135,8 +135,8 @@ test('cota esgotada passa ao próximo modelo e registra o uso', async () => {
   const cookie = await entrar(env);
   const pedidos = simularGroq([429, respostaLLM({ content: 'Pelo segundo modelo.' })]);
   const eventos = await falar(env, cookie, 'oi');
-  assert.equal(eventos.at(-1).mensagem.modelo, 'Llama 3.3 70B');
-  assert.deepEqual(pedidos.map((p) => p.corpo.model), ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile']);
+  assert.equal(eventos.at(-1).mensagem.modelo, 'GPT OSS 20B');
+  assert.deepEqual(pedidos.map((p) => p.corpo.model), ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']);
   const d = await (await pedir(env, '/api/diagnostico', { cookie })).json();
   assert.deepEqual(
     { pedidos: d.ia.hoje.pedidos, falhas: d.ia.hoje.falhas, tokens: d.ia.hoje.tokens },
