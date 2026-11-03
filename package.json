@@ -1,0 +1,24 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Assistente pessoal JARVIS",
+  "scripts": {
+    "test": "node --test --experimental-sqlite testes/api.test.mjs",
+    "local": "node --experimental-sqlite testes/servidor-local.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "JARVIS_SENHA": {
+        "description": "Crie aqui a senha de acesso ao seu JARVIS, com **pelo menos 12 caracteres**. Guarde-a em um local seguro."
+      },
+      "DB": {
+        "description": "Banco de dados onde ficam suas informações. Pode manter o nome sugerido."
+      }
+    }
+  }
+}

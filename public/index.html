@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#030a1c">
+  <meta name="robots" content="noindex, nofollow">
+  <title>JARVIS</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fontes/adventor-bold.woff" as="font" type="font/woff" crossorigin>
+  <link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+  <canvas id="nucleo" class="nucleo" aria-hidden="true"></canvas>
+
+  <main id="tela-carregando" class="tela-entrada">
+    <p class="marca-grande">JARVIS</p>
+    <p class="aviso-entrada" role="status">Iniciando…</p>
+  </main>
+
+  <main id="tela-ajuste" class="tela-entrada" hidden>
+    <p class="marca-grande">JARVIS</p>
+    <section class="painel painel-entrada" aria-labelledby="ajuste-titulo">
+      <h1 id="ajuste-titulo">Falta um ajuste na Cloudflare</h1>
+      <div id="ajuste-senha" hidden>
+        <p>A senha de acesso ainda não foi criada, ou é a de exemplo, ou tem menos de <span id="ajuste-minimo">12</span> caracteres. Enquanto isso, o acesso fica bloqueado.</p>
+        <ol>
+          <li>No painel da Cloudflare, abra <b>Workers &amp; Pages</b> e clique em <b>jarvis</b>.</li>
+          <li>Abra <b>Settings</b> e, em <b>Variables and Secrets</b>, clique em <b>Add</b>.</li>
+          <li>Em <b>Type</b>, escolha <b>Secret</b>. Em <b>Name</b>, escreva <code>JARVIS_SENHA</code>. Em <b>Value</b>, digite sua senha.</li>
+          <li>Clique em <b>Deploy</b> e recarregue esta página.</li>
+        </ol>
+      </div>
+      <div id="ajuste-banco" hidden>
+        <p>O banco de dados não está conectado a este aplicativo. Copie esta mensagem e envie ao Claude: <code>banco_nao_conectado</code>.</p>
+      </div>
+    </section>
+  </main>
+
+  <main id="tela-entrar" class="tela-entrada" hidden>
+    <h1 class="marca-grande">JARVIS</h1>
+    <form id="form-entrar" class="painel painel-entrada" novalidate>
+      <label for="senha">Sua senha</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+      <button type="submit" class="botao-principal">Entrar</button>
+      <p id="erro-entrar" class="mensagem-erro" role="alert"></p>
+    </form>
+  </main>
+
+  <div id="tela-painel" class="painel-geral" hidden>
+    <header class="topo">
+      <span class="marca">JARVIS</span>
+      <div class="relogio">
+        <time id="hora" class="hora"></time>
+        <time id="data" class="data"></time>
+      </div>
+      <button id="sair" type="button" class="botao-discreto">Sair</button>
+    </header>
+
+    <section class="centro" aria-label="Núcleo do JARVIS">
+      <div class="janela-nucleo">
+        <p class="marca-nucleo" aria-hidden="true">JARVIS</p>
+      </div>
+      <p id="estado-nome" class="estado-nome" role="status">Em espera</p>
+      <fieldset class="seletor-estados">
+        <legend>Veja como o núcleo reage em cada estado. A IA passa a controlá-lo na etapa 2.</legend>
+        <div class="opcoes-estado">
+          <label><input type="radio" name="estado" value="espera" checked><span>Em espera</span></label>
+          <label><input type="radio" name="estado" value="ouvindo"><span>Ouvindo</span></label>
+          <label><input type="radio" name="estado" value="processando"><span>Processando</span></label>
+          <label><input type="radio" name="estado" value="respondendo"><span>Respondendo</span></label>
+          <label><input type="radio" name="estado" value="executando"><span>Executando</span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <aside class="coluna coluna-esquerda">
+      <section class="painel" aria-labelledby="sistema-titulo">
+        <div class="painel-cabecalho">
+          <h2 id="sistema-titulo">Sistema</h2>
+          <button id="verificar" type="button" class="botao-discreto">Verificar agora</button>
+        </div>
+        <dl id="diagnostico" class="diagnostico" aria-live="polite"></dl>
+        <p id="erro-diagnostico" class="mensagem-erro" role="alert"></p>
+      </section>
+      <section class="painel" aria-labelledby="etapas-titulo">
+        <h2 id="etapas-titulo">O que já funciona</h2>
+        <ul class="etapas">
+          <li class="pronta">Acesso com senha e banco de dados</li>
+          <li>Conversa com IA</li>
+          <li>Memória</li>
+          <li>Lembretes, tarefas e agenda</li>
+          <li>Finanças</li>
+          <li>Clima, notícias e pesquisa</li>
+          <li>Voz</li>
+          <li>Painel completo e backup</li>
+        </ul>
+      </section>
+    </aside>
+
+    <aside class="coluna coluna-direita">
+      <section class="painel painel-anotacoes" aria-labelledby="anotacoes-titulo">
+        <h2 id="anotacoes-titulo">Anotações</h2>
+        <form id="form-anotacao" novalidate>
+          <label for="anotacao" class="so-leitor">Nova anotação</label>
+          <textarea id="anotacao" rows="3" maxlength="2000" placeholder="Escreva algo e recarregue a página: continuará aqui."></textarea>
+          <button type="submit" class="botao-principal">Salvar anotação</button>
+          <p id="erro-anotacao" class="mensagem-erro" role="alert"></p>
+        </form>
+        <ul id="lista-anotacoes" class="lista-anotacoes"></ul>
+        <p id="sem-anotacoes" class="vazio" hidden>Nenhuma anotação salva ainda.</p>
+      </section>
+    </aside>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
