@@ -1,6 +1,8 @@
 import { criarNucleo } from './nucleo.js';
+import { criarPlaneta } from './globo.js';
 import { carregarMapa } from './planeta.js';
 import { iniciarRadio } from './radio.js';
+import { criarEscuta, criarVoz } from './voz.js';
 
 const $ = (id) => document.getElementById(id);
 const TELAS = ['tela-carregando', 'tela-ajuste', 'tela-entrar', 'tela-painel'];
@@ -14,26 +16,40 @@ let telaAtual = 'tela-carregando';
 
 const canvas = $('nucleo');
 const nucleo = criarNucleo(canvas, {
-  areaInterativa: $('janela-nucleo'),
   centro() {
     const larga = innerWidth > 1080;
     if (telaAtual === 'tela-painel') {
       const janela = $('janela-nucleo').getBoundingClientRect();
       const base = canvas.getBoundingClientRect();
-      const raio = Math.min(janela.width * .27, janela.height * .27);
+      const raio = Math.min(janela.width * .3, janela.height * .32);
       return { x: janela.left - base.left + janela.width / 2, y: janela.top - base.top + janela.height / 2, raio: Math.max(raio, 58) };
     }
     const y = larga ? innerHeight * .36 : 280;
     return { x: innerWidth / 2, y, raio: Math.min(innerWidth * .24, innerHeight * .17, 170) };
   },
 });
-carregarMapa().then((mapa) => nucleo.definirMapa(mapa)).catch((e) => {
+const planeta = criarPlaneta($('planeta'));
+let mapaFalhou = false;
+carregarMapa().then((mapa) => planeta.definirMapa(mapa)).catch((e) => {
   console.error('Mapa', e);
   mapaFalhou = true;
-  if ($('radio-estado')) $('radio-estado').dataset.mapa = 'falhou';
 });
-let mapaFalhou = false;
 let radioIniciado = false;
+let controleRadio = null;
+
+function expandirPlaneta(ativo) {
+  $('planeta-cartao').classList.toggle('expandido', ativo);
+  $('planeta-fechar').hidden = !ativo;
+  $('planeta-abrir').hidden = ativo;
+  planeta.expandir(ativo);
+  if (ativo) $('planeta-fechar').focus();
+  else $('planeta-abrir').focus();
+}
+$('planeta-abrir').addEventListener('click', () => expandirPlaneta(true));
+$('planeta-fechar').addEventListener('click', () => expandirPlaneta(false));
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('planeta-cartao').classList.contains('expandido')) expandirPlaneta(false);
+});
 
 function mostrar(tela) {
   telaAtual = tela;
@@ -306,84 +322,136 @@ $('sair').addEventListener('click', async () => {
   } catch (e) {
     if (e.codigo !== 'nao_autenticado') return;
   }
-  definirEstado('espera');
-  modoConversa(false);
-  $('historico').replaceChildren();
+  voz.calar();
+  await escuta.desligar();
+  concluirFala();
+  legenda('');
   mostrar('tela-entrar');
 });
 
 $('verificar').addEventListener('click', verificar);
 
-// Conversa
+// Conversa por voz
 let conversando = false;
-let temporizadorEstado = 0;
+let temporizadorLegenda = 0;
+const NOME_BOTAO = 'Falar com o JARVIS';
 
 function definirEstado(nome) {
-  clearTimeout(temporizadorEstado);
   nucleo.definirEstado(nome);
   $('estado-nome').textContent = NOMES_ESTADO[nome];
 }
 
-function ampliarPlaneta(ativo) {
-  $('centro').classList.toggle('planeta-ampliado', ativo);
-  $('ampliar-planeta').textContent = ativo ? 'Mostrar conversa' : 'Ampliar planeta';
-  nucleo.reposicionar();
+// Uma linha passageira, sem histórico na tela: o que foi ouvido, o que ele respondeu ou o erro.
+function legenda(texto, { erro = false, sumir = 0 } = {}) {
+  clearTimeout(temporizadorLegenda);
+  $('legenda').textContent = texto;
+  $('legenda').classList.toggle('erro', erro);
+  if (sumir) temporizadorLegenda = setTimeout(() => { $('legenda').textContent = ''; }, sumir);
 }
 
-function modoConversa(ativo) {
-  const mudou = $('centro').classList.contains('com-conversa') !== ativo;
-  $('centro').classList.toggle('com-conversa', ativo);
-  $('historico').hidden = !ativo;
-  $('nova-conversa').hidden = !ativo;
-  $('ampliar-planeta').hidden = !ativo;
-  if (!ativo) ampliarPlaneta(false);
-  if (mudou) nucleo.reposicionar();
+function concluirFala() {
+  definirEstado('espera');
+  $('falar').textContent = NOME_BOTAO;
+  controleRadio?.abaixar(false);
+  atualizarDica();
+  if (escuta?.ligada()) escuta.retomar();
 }
 
-function adicionarFala(mensagem) {
-  const fala = document.createElement('div');
-  fala.className = `fala ${mensagem.papel === 'user' ? 'fala-usuario' : 'fala-jarvis'}`;
-  const texto = document.createElement('p');
-  texto.textContent = mensagem.conteudo;
-  fala.append(texto);
-  if (mensagem.papel !== 'user') {
-    const detalhes = document.createElement('div');
-    detalhes.className = 'fala-detalhes';
-    for (const acao of mensagem.acoes ?? []) {
-      const item = document.createElement('span');
-      item.className = 'fala-acao';
-      item.textContent = acao.descricao;
-      detalhes.append(item);
+function atualizarDica() {
+  $('dica-escuta').textContent = escuta?.ligada() ? 'Diga: Ei, Jarvis' : 'Pronto para comandos';
+}
+
+const voz = criarVoz({
+  aoOuvirParcial: (texto) => legenda(texto),
+  aoOuvir: (texto) => enviarMensagem(texto),
+  aoFalhar: (mensagem) => {
+    concluirFala();
+    legenda(mensagem, { erro: true });
+  },
+  aoTerminarSemFala: () => {
+    concluirFala();
+    legenda('');
+  },
+});
+
+function preencherVozes() {
+  const lista = voz.vozes();
+  $('voz-escolha').replaceChildren(...lista.map((v) => {
+    const opcao = document.createElement('option');
+    opcao.value = v.voiceURI;
+    opcao.textContent = `${v.name} (${v.lang})`;
+    return opcao;
+  }));
+  const atual = voz.vozAtual();
+  if (atual) $('voz-escolha').value = atual.voiceURI;
+  $('voz-escolha').disabled = !lista.length;
+  $('voz-aviso').textContent = !lista.length
+    ? 'O navegador não informou vozes em português.'
+    : voz.temVozMasculina() ? '' : 'Não encontrei voz masculina em português neste computador.';
+}
+const escuta = criarEscuta({
+  aoChamar: () => {
+    voz.calar();
+    controleRadio?.abaixar(true);
+    definirEstado('ouvindo');
+    $('dica-escuta').textContent = 'Estou ouvindo';
+    legenda('Pode falar…');
+  },
+  aoParcial: (texto) => legenda(texto),
+  aoComando: (texto) => enviarMensagem(texto),
+  aoDesistir: () => {
+    concluirFala();
+    legenda('');
+  },
+  aoFalhar: (mensagem) => {
+    $('escuta-ligada').checked = false;
+    salvarEscuta(false);
+    concluirFala();
+    legenda(mensagem, { erro: true });
+  },
+});
+
+function salvarEscuta(ligada) {
+  try { localStorage.setItem('jarvis-escuta', ligada ? '1' : '0'); } catch { /* vale só nesta sessão */ }
+}
+function escutaSalva() {
+  try { return localStorage.getItem('jarvis-escuta') === '1'; } catch { return false; }
+}
+function ligarEscuta() {
+  $('escuta-ligada').checked = true;
+  salvarEscuta(true);
+  escuta.ligar();
+  atualizarDica();
+}
+$('escuta-ligada').addEventListener('change', async (e) => {
+  if (e.target.checked) {
+    if (!escuta.disponivel) {
+      e.target.checked = false;
+      legenda('Este navegador não reconhece voz. Abra o JARVIS no Google Chrome.', { erro: true });
+      return;
     }
-    if (mensagem.modelo) {
-      const modelo = document.createElement('span');
-      modelo.textContent = mensagem.modelo;
-      detalhes.append(modelo);
-    }
-    fala.append(detalhes);
+    ligarEscuta();
+  } else {
+    salvarEscuta(false);
+    await escuta.desligar();
+    concluirFala();
+    legenda('');
   }
-  $('historico').append(fala);
-  $('historico').scrollTop = $('historico').scrollHeight;
-  return fala;
-}
+});
 
-function ajustarCampo() {
-  const campo = $('mensagem');
-  campo.style.height = 'auto';
-  const altura = Math.min(campo.scrollHeight, 140);
-  campo.style.height = `${altura}px`;
-  campo.style.overflowY = campo.scrollHeight > 140 ? 'auto' : 'hidden';
-}
+voz.aoMudarVozes(preencherVozes);
+preencherVozes();
+$('voz-escolha').addEventListener('change', (e) => voz.escolherVoz(e.target.value));
+$('voz-exemplo').addEventListener('click', () => voz.falar('Às suas ordens. Todos os sistemas estão funcionando.', () => {}));
 
-async function carregarConversa() {
-  try {
-    const { mensagens } = await api('/api/conversa');
-    $('historico').replaceChildren();
-    modoConversa(mensagens.length > 0);
-    mensagens.forEach(adicionarFala);
-  } catch (e) {
-    if (!tratarSessaoExpirada(e)) $('erro-conversa').textContent = e.message;
-  }
+function aoResponder(texto) {
+  definirEstado('respondendo');
+  $('falar').textContent = 'Interromper e falar';
+  legenda(texto);
+  voz.falar(texto, () => {
+    concluirFala();
+    legenda(texto, { sumir: 5000 });
+  });
 }
 
 async function lerEventos(resposta, aoReceber) {
@@ -400,19 +468,13 @@ async function lerEventos(resposta, aoReceber) {
   }
 }
 
-async function enviarMensagem() {
-  const campo = $('mensagem');
-  const texto = campo.value.trim();
-  if (!texto || conversando) return;
+async function enviarMensagem(texto) {
+  if (conversando) return;
   conversando = true;
-  $('enviar').disabled = true;
-  $('erro-conversa').textContent = '';
-  modoConversa(true);
-  ampliarPlaneta(false);
-  const falaUsuario = adicionarFala({ papel: 'user', conteudo: texto });
-  campo.value = '';
-  ajustarCampo();
+  $('falar').disabled = true;
+  $('falar').textContent = 'Processando…';
   definirEstado('processando');
+  legenda(texto);
 
   let final = null;
   let falha = null;
@@ -434,66 +496,53 @@ async function enviarMensagem() {
     await lerEventos(resposta, async (evento) => {
       const espera = liberarEm - Date.now();
       if (espera > 0) await new Promise((r) => setTimeout(r, espera));
-      if (evento.tipo === 'estado') {
+      if (evento.tipo === 'estado' && evento.estado !== 'respondendo') {
         definirEstado(evento.estado);
         if (evento.estado === 'executando') liberarEm = Date.now() + 900;
       }
       if (evento.tipo === 'resposta') final = evento.mensagem;
       if (evento.tipo === 'erro') falha = evento;
     });
-    if (!final && !falha) falha = { mensagem: 'A conexão foi interrompida antes da resposta. Tente de novo.' };
+    if (!final && !falha) falha = { mensagem: 'A conexão caiu antes da resposta. Fale de novo.' };
   } catch (e) {
     falha = e.codigo ? e : { mensagem: e.message === 'Failed to fetch' ? 'Sem conexão com o servidor. Verifique sua internet.' : e.message };
   }
 
   conversando = false;
-  $('enviar').disabled = false;
+  $('falar').disabled = false;
   if (final) {
-    adicionarFala(final);
-    definirEstado('respondendo');
-    temporizadorEstado = setTimeout(() => definirEstado('espera'), Math.min(1500 + final.conteudo.length * 12, 6000));
     if (final.acoes.length) carregarAnotacoes();
+    aoResponder(final.conteudo);
   } else {
-    definirEstado('espera');
     if (falha.acoes?.length) carregarAnotacoes();
-    if (!tratarSessaoExpirada(falha)) {
-      // A fala não foi salva: ela volta ao campo para uma nova tentativa.
-      falaUsuario.remove();
-      if ($('historico').childElementCount === 0) modoConversa(false);
-      campo.value = texto;
-      ajustarCampo();
-      $('erro-conversa').textContent = falha.mensagem;
-    }
+    concluirFala();
+    if (!tratarSessaoExpirada(falha)) legenda(falha.mensagem, { erro: true });
   }
   verificar();
-  campo.focus();
 }
 
-$('form-conversa').addEventListener('submit', (evento) => {
-  evento.preventDefault();
-  enviarMensagem();
-});
-$('mensagem').addEventListener('input', ajustarCampo);
-$('mensagem').addEventListener('keydown', (evento) => {
-  if (evento.key === 'Enter' && !evento.shiftKey && !evento.isComposing) {
-    evento.preventDefault();
-    enviarMensagem();
+$('falar').addEventListener('click', async () => {
+  if (conversando) return;
+  if (voz.ouvindo()) {
+    voz.pararDeOuvir();
+    return;
   }
+  await escuta.pausar();
+  voz.calar();
+  controleRadio?.abaixar(true);
+  legenda('Pode falar…');
+  definirEstado('ouvindo');
+  $('falar').textContent = 'Ouvindo. Clique para encerrar';
+  voz.ouvir();
 });
-$('ampliar-planeta').addEventListener('click', () => {
-  ampliarPlaneta(!$('centro').classList.contains('planeta-ampliado'));
-});
+
 $('nova-conversa').addEventListener('click', async () => {
   if (conversando) return;
   try {
     await api('/api/conversa/nova', { metodo: 'POST' });
-    $('historico').replaceChildren();
-    $('erro-conversa').textContent = '';
-    modoConversa(false);
-    definirEstado('espera');
-    $('mensagem').focus();
+    legenda('Nova conversa iniciada.', { sumir: 3000 });
   } catch (e) {
-    if (!tratarSessaoExpirada(e)) $('erro-conversa').textContent = e.message;
+    if (!tratarSessaoExpirada(e)) legenda(e.message, { erro: true });
   }
 });
 
@@ -517,11 +566,11 @@ function abrirPainel() {
   mostrar('tela-painel');
   atualizarRelogio();
   carregarAnotacoes();
-  carregarConversa();
   verificar();
+  if (escutaSalva() && escuta.disponivel && !escuta.ligada()) ligarEscuta();
   if (!radioIniciado) {
     radioIniciado = true;
-    iniciarRadio(nucleo, { mapaFalhou: () => mapaFalhou });
+    controleRadio = iniciarRadio(planeta, { mapaFalhou: () => mapaFalhou });
   }
 }
 

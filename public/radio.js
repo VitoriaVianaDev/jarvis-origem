@@ -63,6 +63,8 @@ export function iniciarRadio(nucleo, { mapaFalhou }) {
   audio.preload = 'none';
   audio.volume = Number($('radio-volume').value);
   let tocando = null;
+  let abaixado = false;
+  const aplicarVolume = () => { audio.volume = Number($('radio-volume').value) * (abaixado ? .12 : 1); };
 
   const estado = (texto) => { $('radio-estado').textContent = texto; };
 
@@ -102,7 +104,7 @@ export function iniciarRadio(nucleo, { mapaFalhou }) {
       $('radio-pausar').textContent = 'Tocar de novo';
     }
   });
-  $('radio-volume').addEventListener('input', (e) => { audio.volume = Number(e.target.value); });
+  $('radio-volume').addEventListener('input', aplicarVolume);
 
   function mostrarLista(titulo, estacoes) {
     $('radio-lugar').textContent = titulo;
@@ -157,10 +159,18 @@ export function iniciarRadio(nucleo, { mapaFalhou }) {
       const lugares = agruparPorLugar(limparEstacoes(lista));
       nucleo.definirLugares(lugares, (lugar) => mostrarLista(lugar.nome, lugar.estacoes));
       const total = lugares.reduce((s, l) => s + l.total, 0);
-      estado(`${total.toLocaleString('pt-BR')} rádios em ${lugares.length.toLocaleString('pt-BR')} locais. Arraste o planeta, use a rolagem para aproximar e clique em um ponto laranja.`
+      estado(`${total.toLocaleString('pt-BR')} rádios em ${lugares.length.toLocaleString('pt-BR')} locais. Clique no planeta para ampliar; depois, arraste, use a rolagem e clique em um ponto laranja.`
         + (mapaFalhou() ? ' O mapa dos continentes não carregou.' : ''));
     } catch {
       estado('O diretório de rádios não respondeu. Recarregue a página para tentar de novo.');
     }
   })();
+
+  // Enquanto o microfone está ligado, a rádio fica baixa para não atrapalhar o reconhecimento.
+  return {
+    abaixar(valor) {
+      abaixado = valor;
+      aplicarVolume();
+    },
+  };
 }

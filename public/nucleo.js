@@ -1,31 +1,22 @@
-// Núcleo do JARVIS: a Terra real dentro de um radar. Os anéis são desenho; os pontos são rádios reais.
-import { ALTURA_MASCARA, LARGURA_MASCARA } from './planeta.js';
-
-const AZUL = [44, 196, 255];
+// Núcleo do JARVIS: reator hexagonal. Tudo aqui é desenho; nenhum número é dado.
+const AZUL = [46, 224, 238];
 const LARANJA = [255, 140, 50];
 const ESTADOS = {
-  espera:      { giro: .05, cor: AZUL,           brilho: .75, onda: 0, orbita: .16, ondas: 0, varredura: 0, marcas: 0 },
-  ouvindo:     { giro: .07, cor: [110, 225, 255], brilho: 1,   onda: 0, orbita: .24, ondas: 1, varredura: 0, marcas: 0 },
-  processando: { giro: .4,  cor: [90, 150, 255], brilho: .85, onda: 0, orbita: 1.1, ondas: 0, varredura: 1, marcas: 0 },
-  respondendo: { giro: .08, cor: [130, 235, 255], brilho: 1.1, onda: 1, orbita: .35, ondas: 0, varredura: 0, marcas: 0 },
-  executando:  { giro: .2,  cor: LARANJA,        brilho: 1,   onda: 0, orbita: .7,  ondas: 0, varredura: 0, marcas: 1 },
+  espera:      { giro: .12, cor: AZUL,            brilho: .8,  onda: 0, orbita: .18, ondas: 0, varredura: 0, marcas: 0 },
+  ouvindo:     { giro: .2,  cor: [120, 245, 255], brilho: 1.15, onda: 0, orbita: .25, ondas: 1, varredura: 0, marcas: 0 },
+  processando: { giro: 1,   cor: [80, 165, 255],  brilho: .95,  onda: 0, orbita: 1.2, ondas: 0, varredura: 1, marcas: 0 },
+  respondendo: { giro: .3,  cor: [170, 250, 255], brilho: 1.3, onda: 1, orbita: .4, ondas: 0, varredura: 0, marcas: 0 },
+  executando:  { giro: .55, cor: LARANJA,         brilho: 1.1, onda: 0, orbita: .8, ondas: 0, varredura: 0, marcas: 1 },
 };
 const TOPO = -Math.PI / 2;
-const RAD = Math.PI / 180;
-const MAX_LADO = 560;
 
-export function criarNucleo(canvas, { centro, areaInterativa }) {
+export function criarNucleo(canvas, { centro }) {
   const ctx = canvas.getContext('2d');
-  const movimentoReduzido = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduzido = matchMedia('(prefers-reduced-motion: reduce)');
   const p = { ...ESTADOS.espera, cor: [...ESTADOS.espera.cor] };
-  const tela = document.createElement('canvas');
-  const ctxTela = tela.getContext('2d');
-  let imagem = null, tabela = null;
   let alvo = ESTADOS.espera;
-  let mapa = null, lugares = [], selecionado = null, sobre = null, aoEscolher = () => {};
   let largura = 0, altura = 0, cx = 0, cy = 0, R = 0;
-  let lon0 = -50, lat0 = -12, zoom = 1, destino = null;
-  let faseOrbita = 0, faseEfeito = 0, ultimo = 0, quadro = 0, contador = 0, tocou = false;
+  let fase = 0, faseOrbita = 0, faseEfeito = 0, tempo = 0, ultimo = 0, quadro = 0;
 
   const cor = (a, c = p.cor) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
@@ -38,77 +29,6 @@ export function criarNucleo(canvas, { centro, areaInterativa }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const c = centro();
     cx = c.x; cy = c.y; R = c.raio;
-    prepararTabela();
-  }
-
-  // Calcula antes a posição de cada pixel na esfera, para girar o planeta sem pesar.
-  function prepararTabela() {
-    const lado = Math.min(MAX_LADO, Math.max(120, Math.round(R * 2 * Math.min(devicePixelRatio || 1, 1.5))));
-    if (tela.width !== lado) { tela.width = lado; tela.height = lado; }
-    imagem = ctxTela.createImageData(lado, lado);
-    const indices = [], xs = [], ys = [], zs = [], bordas = [];
-    const meio = lado / 2;
-    for (let j = 0; j < lado; j++) {
-      for (let i = 0; i < lado; i++) {
-        const u = (i + .5 - meio) / meio, v = (j + .5 - meio) / meio;
-        const d2 = u * u + v * v;
-        if (d2 > 1) continue;
-        const sx = u / zoom, sy = -v / zoom;
-        const r2 = sx * sx + sy * sy;
-        indices.push((j * lado + i) * 4);
-        xs.push(sx); ys.push(sy); zs.push(Math.sqrt(Math.max(0, 1 - r2)));
-        bordas.push(Math.min(1, (1 - d2) * 18));
-      }
-    }
-    tabela = {
-      n: indices.length,
-      indices: Uint32Array.from(indices), xs: Float32Array.from(xs), ys: Float32Array.from(ys),
-      zs: Float32Array.from(zs), bordas: Float32Array.from(bordas),
-    };
-  }
-
-  function pintarTerra() {
-    if (!tabela) return;
-    const { n, indices, xs, ys, zs, bordas } = tabela;
-    const px = imagem.data;
-    const sinLat = Math.sin(lat0 * RAD), cosLat = Math.cos(lat0 * RAD);
-    const brilho = Math.min(p.brilho, 1.15);
-    const [r, g, b] = p.cor;
-    const W = LARGURA_MASCARA, H = ALTURA_MASCARA;
-    for (let k = 0; k < n; k++) {
-      const x = xs[k], y = ys[k], z = zs[k];
-      const y2 = y * cosLat + z * sinLat;
-      const z2 = z * cosLat - y * sinLat;
-      const lat = Math.asin(y2 > 1 ? 1 : y2 < -1 ? -1 : y2) / RAD;
-      let lon = Math.atan2(x, z2) / RAD + lon0;
-      lon = ((lon + 180) % 360 + 360) % 360;
-      const t = mapa ? mapa[(((90 - lat) / 180 * H) | 0) * W + ((lon / 360 * W) | 0)] : 0;
-      const luz = (.3 + .7 * z) * bordas[k];
-      const m = indices[k];
-      if (t) {
-        const f = (t / 255) * luz * brilho;
-        px[m] = 12 + r * f; px[m + 1] = 24 + g * f; px[m + 2] = 40 + b * f;
-      } else {
-        const grade = (lon % 15 < .28 || Math.abs(lat) % 15 < .22) ? 26 : 0;
-        const f = luz * brilho;
-        px[m] = (3 + grade * .3) * f; px[m + 1] = (20 + grade * .75) * f; px[m + 2] = (46 + grade) * f;
-      }
-      px[m + 3] = bordas[k] * 255;
-    }
-    ctxTela.putImageData(imagem, 0, 0);
-  }
-
-  function projetar(lat, lon) {
-    const dLon = (lon - lon0) * RAD, la = lat * RAD;
-    const x = Math.cos(la) * Math.sin(dLon);
-    const y0 = Math.sin(la);
-    const z0 = Math.cos(la) * Math.cos(dLon);
-    const sinLat = Math.sin(lat0 * RAD), cosLat = Math.cos(lat0 * RAD);
-    const y = y0 * cosLat - z0 * sinLat;
-    const z = y0 * sinLat + z0 * cosLat;
-    const sx = cx + x * R * zoom, sy = cy - y * R * zoom;
-    const dentro = z > 0.02 && Math.hypot(sx - cx, sy - cy) < R;
-    return { x: sx, y: sy, z, dentro, nx: x, ny: -y };
   }
 
   function arco(raio, inicio, fim, espessura, estilo) {
@@ -119,58 +39,106 @@ export function criarNucleo(canvas, { centro, areaInterativa }) {
     ctx.stroke();
   }
 
-  function radar() {
-    const halo = ctx.createRadialGradient(cx, cy, R * .92, cx, cy, R * 1.34);
-    halo.addColorStop(0, cor(.3 * p.brilho));
-    halo.addColorStop(1, cor(0));
-    ctx.fillStyle = halo;
+  function hexagono(raio, giro, espessura, estilo) {
+    ctx.lineWidth = espessura;
+    ctx.strokeStyle = estilo;
     ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.34, 0, 7);
-    ctx.fill();
+    for (let i = 0; i <= 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + giro;
+      const x = cx + Math.cos(a) * raio, y = cy + Math.sin(a) * raio;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
 
-    for (const [r, a] of [[1.03, .8], [1.2, .28], [1.42, .4], [1.7, .55]]) arco(R * r, 0, 7, 1, cor(a));
+  function fundo() {
+    const luz = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.6);
+    luz.addColorStop(0, cor(.34 * p.brilho));
+    luz.addColorStop(.45, cor(.1 * p.brilho));
+    luz.addColorStop(1, cor(0));
+    ctx.fillStyle = luz;
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.6, 0, 7); ctx.fill();
+  }
 
-    // Grandes arcos azuis e detalhes laranja, como na primeira referência
-    const gira = faseOrbita * .3;
-    for (const [i, tam] of [[-.5, 1], [2.64, 1]]) arco(R * 1.31, i - .0, i + tam, R * .09, cor(.28));
-    for (const [i, tam] of [[.1, .55], [2.2, .3], [4.3, .42]]) arco(R * 1.55, gira + i, gira + i + tam, 5, cor(.75));
-    arco(R * 1.55, -gira + 1.1, -gira + 1.22, 5, cor(.95, LARANJA));
-    arco(R * 1.55, -gira + 4, -gira + 4.09, 5, cor(.95, LARANJA));
-    arco(R * 1.13, -gira * 1.6, -gira * 1.6 + .5, 2, cor(.9));
-    arco(R * 1.13, -gira * 1.6 + 3.1, -gira * 1.6 + 3.5, 2, cor(.9));
-
-    for (let i = 0; i < 120; i++) {
-      const a = (i / 120) * Math.PI * 2 + TOPO;
-      const longa = i % 10 === 0;
-      const r1 = R * 1.7, r2 = r1 + (longa ? R * .08 : R * .035);
-      ctx.strokeStyle = cor(longa ? .85 : .35);
-      ctx.lineWidth = longa ? 1.6 : 1;
+  function reator() {
+    // Hexágonos do centro
+    hexagono(R * .46, fase * .5 + Math.PI / 6, 2, cor(.55));
+    hexagono(R * .36, -fase * .8, 1.5, cor(.8));
+    ctx.fillStyle = cor(.1 * p.brilho);
+    ctx.beginPath(); ctx.arc(cx, cy, R * .36, 0, 7); ctx.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + fase * .5 + Math.PI / 6;
+      ctx.strokeStyle = cor(.32);
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
-      ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+      ctx.moveTo(cx + Math.cos(a) * R * .2, cy + Math.sin(a) * R * .2);
+      ctx.lineTo(cx + Math.cos(a) * R * .46, cy + Math.sin(a) * R * .46);
       ctx.stroke();
     }
-    // Quatro marcadores da mira
-    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
-      ctx.strokeStyle = cor(.9, LARANJA);
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * R * 1.05, cy + Math.sin(a) * R * 1.05);
-      ctx.lineTo(cx + Math.cos(a) * R * 1.11, cy + Math.sin(a) * R * 1.11);
-      ctx.stroke();
+
+    // Núcleo de luz, que pulsa ao ouvir e ao falar
+    const pulso = 1 + p.onda * .2 * Math.abs(Math.sin(tempo * 8)) + p.ondas * .08 * Math.sin(tempo * 4);
+    const brilhoCentro = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * .27 * pulso);
+    brilhoCentro.addColorStop(0, 'rgba(255,255,255,1)');
+    brilhoCentro.addColorStop(.2, 'rgba(235,255,255,.95)');
+    brilhoCentro.addColorStop(.42, cor(.85 * Math.min(p.brilho, 1)));
+    brilhoCentro.addColorStop(1, cor(0));
+    ctx.fillStyle = brilhoCentro;
+    ctx.beginPath(); ctx.arc(cx, cy, R * .27 * pulso, 0, 7); ctx.fill();
+
+    // Anéis segmentados girando em sentidos opostos
+    const conjuntos = [
+      [.58, 5, .78, 3, fase * .9, .85],
+      [.7, 3, 1.25, 2, -fase * .6, .65],
+      [.84, 7, .5, 3.5, fase * .4, .75],
+      [.98, 4, 1, 2, -fase * .3, .55],
+    ];
+    for (const [r, n, tam, e, giro, a] of conjuntos) {
+      for (let i = 0; i < n; i++) {
+        const ini = giro + (i / n) * Math.PI * 2;
+        arco(R * r, ini, ini + tam, e, cor(a));
+      }
     }
+
+    // Pontos que viajam nos anéis
+    for (const [r, v, f] of [[.64, .9, 0], [.64, .9, 2.4], [.78, -.6, 1.1], [.91, .45, 3.6], [1.04, -.3, .4]]) {
+      const a = fase * v + f;
+      ctx.fillStyle = cor(1);
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * R * r, cy + Math.sin(a) * R * r, Math.max(R * .014, 1.6), 0, 7);
+      ctx.fill();
+    }
+
+    // Anéis finos e réguas graduadas
+    for (const [r, a] of [[.52, .3], [1.1, .55], [1.24, .35], [1.38, .75]]) arco(R * r, 0, 7, 1, cor(a));
+    for (const [r, n, tamLongo, tamCurto, passo, giro] of [[1.38, 120, .07, .03, 10, 0], [1.1, 72, .05, .022, 6, -fase * .12]]) {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + TOPO + giro;
+        const longa = i % passo === 0;
+        ctx.strokeStyle = cor(longa ? .9 : .38);
+        ctx.lineWidth = longa ? 1.6 : 1;
+        const r1 = R * r, r2 = r1 + R * (longa ? tamLongo : tamCurto);
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+        ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+        ctx.stroke();
+      }
+    }
+    for (const i of [0, 2.1, 4.2]) arco(R * 1.3, -fase * .25 + i, -fase * .25 + i + .7, 3, cor(.65));
   }
 
   function efeitos() {
     if (p.ondas > .02) {
       for (let i = 0; i < 3; i++) {
         const f = (faseEfeito * .5 + i / 3) % 1;
-        arco(R * (1.04 + f * .6), 0, 7, 1.5, cor((1 - f) * .8 * p.ondas));
+        arco(R * (.55 + f * .95), 0, 7, 1.8, cor((1 - f) * .85 * p.ondas));
       }
     }
     if (p.onda > .02) {
-      const f = (faseEfeito * 1.2) % 1;
-      arco(R * (1.03 + f * .16), 0, 7, 3, cor((1 - f) * .9 * p.onda));
+      for (let i = 0; i < 2; i++) {
+        const f = (faseEfeito * 1.1 + i / 2) % 1;
+        arco(R * (.28 + f * .8), 0, 7, 2.5, cor((1 - f) * .7 * p.onda));
+      }
     }
     if (p.varredura > .02) {
       const a = faseEfeito * 2.2;
@@ -178,7 +146,7 @@ export function criarNucleo(canvas, { centro, areaInterativa }) {
         ctx.fillStyle = cor(((1 - i / 26) ** 2) * .3 * p.varredura);
         ctx.beginPath();
         ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, R * 1.42, a - (i + 1) * .045, a - i * .045);
+        ctx.arc(cx, cy, R * 1.38, a - (i + 1) * .045, a - i * .045);
         ctx.closePath();
         ctx.fill();
       }
@@ -191,189 +159,58 @@ export function criarNucleo(canvas, { centro, areaInterativa }) {
         const dist = (ativa - i + total) % total;
         ctx.strokeStyle = cor(p.marcas * Math.max(.14, 1 - dist / 24));
         ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a) * R * 1.22, cy + Math.sin(a) * R * 1.22);
-        ctx.lineTo(cx + Math.cos(a) * R * 1.29, cy + Math.sin(a) * R * 1.29);
+        ctx.moveTo(cx + Math.cos(a) * R * 1.14, cy + Math.sin(a) * R * 1.14);
+        ctx.lineTo(cx + Math.cos(a) * R * 1.2, cy + Math.sin(a) * R * 1.2);
         ctx.stroke();
       }
     }
   }
 
-  function pontos() {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, R * 1.2, 0, 7);
-    ctx.clip();
-    const raioPonto = Math.max(2.2, Math.min(3.6, R / 65));
-    for (const lugar of lugares) {
-      const q = projetar(lugar.lat, lugar.lon);
-      if (!q.dentro) continue;
-      lugar.tx = q.x; lugar.ty = q.y; lugar.visivel = true;
-      // A antena cresce conforme a quantidade de rádios do lugar.
-      const antena = (3 + Math.log2(lugar.total + 1) * 3) * Math.max(R / 170, .6);
-      ctx.strokeStyle = cor(.4 + q.z * .35, LARANJA);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(q.x, q.y);
-      ctx.lineTo(q.x + q.nx * antena, q.y + q.ny * antena);
-      ctx.stroke();
-      ctx.fillStyle = cor(.6 + q.z * .4, LARANJA);
-      ctx.fillRect(q.x - raioPonto / 2, q.y - raioPonto / 2, raioPonto, raioPonto);
-    }
-    ctx.restore();
-    for (const lugar of [selecionado, sobre]) {
-      if (!lugar) continue;
-      const q = projetar(lugar.lat, lugar.lon);
-      if (!q.dentro) continue;
-      ctx.strokeStyle = 'rgba(255,255,255,.95)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(q.x, q.y, 6, 0, 7);
-      ctx.stroke();
-    }
-    if (sobre) {
-      const q = projetar(sobre.lat, sobre.lon);
-      if (q.dentro) {
-        ctx.font = '600 12.5px Inter, sans-serif';
-        const texto = `${sobre.nome}: ${sobre.total} ${sobre.total === 1 ? 'rádio' : 'rádios'}`;
-        const w = ctx.measureText(texto).width;
-        const x = Math.min(q.x + 10, largura - w - 16), y = q.y - 22;
-        ctx.fillStyle = 'rgba(1,6,14,.92)';
-        ctx.fillRect(x - 6, y - 12, w + 12, 22);
-        ctx.fillStyle = '#e0f4ff';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(texto, x, y);
-      }
-    }
-  }
-
-  function desenhar(repintar) {
+  function desenhar() {
     ctx.clearRect(0, 0, largura, altura);
     ctx.globalCompositeOperation = 'lighter';
-    radar();
+    fundo();
     efeitos();
+    reator();
     ctx.globalCompositeOperation = 'source-over';
-    if (repintar) pintarTerra();
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(tela, cx - R, cy - R, R * 2, R * 2);
-    pontos();
   }
 
   function avancar(agora) {
     const dt = Math.min((agora - ultimo) / 1000 || 0, .05);
     ultimo = agora;
     const k = 1 - Math.exp(-dt * 4.5);
-    for (const chave of ['giro', 'brilho', 'onda', 'orbita', 'ondas', 'varredura', 'marcas']) p[chave] += (alvo[chave] - p[chave]) * k;
+    for (const c of ['giro', 'brilho', 'onda', 'orbita', 'ondas', 'varredura', 'marcas']) p[c] += (alvo[c] - p[c]) * k;
     for (let i = 0; i < 3; i++) p.cor[i] += (alvo.cor[i] - p.cor[i]) * k;
-    if (!tocou) lon0 -= p.giro * dt * 60;
-    if (destino) {
-      const dLon = ((destino.lon - lon0 + 540) % 360) - 180;
-      lon0 += dLon * .08;
-      lat0 += (destino.lat - lat0) * .08;
-      if (Math.abs(dLon) < .2 && Math.abs(destino.lat - lat0) < .2) destino = null;
-    }
+    tempo += dt;
+    fase += p.giro * dt;
     faseOrbita += p.orbita * dt;
     faseEfeito += dt;
-    contador += 1;
-    desenhar(contador % 2 === 0 || !imagem);
+    desenhar();
     quadro = requestAnimationFrame(avancar);
   }
 
   function iniciar() {
     cancelAnimationFrame(quadro);
-    if (movimentoReduzido.matches || document.hidden) {
+    if (reduzido.matches || document.hidden) {
       Object.assign(p, alvo, { cor: [...alvo.cor] });
       faseEfeito = 1.1;
-      desenhar(true);
+      desenhar();
       return;
     }
     ultimo = performance.now();
     quadro = requestAnimationFrame(avancar);
   }
 
-  // Girar, aproximar e clicar
-  function posicao(e) {
-    const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-  function lugarPerto({ x, y }) {
-    let melhor = null, menor = 14;
-    for (const lugar of lugares) {
-      if (!lugar.visivel) continue;
-      const q = projetar(lugar.lat, lugar.lon);
-      if (!q.dentro) continue;
-      const d = Math.hypot(q.x - x, q.y - y);
-      if (d < menor) { menor = d; melhor = lugar; }
-    }
-    return melhor;
-  }
-  let arrasto = null;
-  areaInterativa?.addEventListener('pointerdown', (e) => {
-    arrasto = { x: e.clientX, y: e.clientY, inicioX: e.clientX, inicioY: e.clientY, moveu: false };
-    areaInterativa.setPointerCapture(e.pointerId);
-  });
-  areaInterativa?.addEventListener('pointermove', (e) => {
-    if (arrasto) {
-      const dx = e.clientX - arrasto.x, dy = e.clientY - arrasto.y;
-      arrasto.x = e.clientX; arrasto.y = e.clientY;
-      if (Math.hypot(e.clientX - arrasto.inicioX, e.clientY - arrasto.inicioY) > 4) {
-        arrasto.moveu = true;
-        tocou = true;
-        destino = null;
-        areaInterativa.classList.add('arrastando');
-        lon0 -= (dx / (R * zoom)) * 57.3;
-        lat0 = Math.max(-85, Math.min(85, lat0 + (dy / (R * zoom)) * 57.3));
-      }
-    } else {
-      sobre = lugarPerto(posicao(e));
-      areaInterativa.classList.toggle('sobre-ponto', Boolean(sobre));
-    }
-    if (movimentoReduzido.matches) desenhar(true);
-  });
-  areaInterativa?.addEventListener('pointerup', (e) => {
-    areaInterativa.classList.remove('arrastando');
-    if (arrasto && !arrasto.moveu) {
-      const lugar = lugarPerto(posicao(e));
-      if (lugar) {
-        selecionado = lugar;
-        tocou = true;
-        aoEscolher(lugar);
-      }
-    }
-    arrasto = null;
-  });
-  areaInterativa?.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    tocou = true;
-    zoom = Math.max(1, Math.min(10, zoom * Math.exp(-e.deltaY * .0015)));
-    prepararTabela();
-    if (movimentoReduzido.matches) desenhar(true);
-  }, { passive: false });
-
   addEventListener('resize', () => { medir(); iniciar(); });
   document.addEventListener('visibilitychange', iniciar);
-  movimentoReduzido.addEventListener('change', iniciar);
+  reduzido.addEventListener('change', iniciar);
   medir();
   iniciar();
 
   return {
     definirEstado(nome) {
       alvo = ESTADOS[nome] ?? ESTADOS.espera;
-      if (movimentoReduzido.matches) iniciar();
-    },
-    definirMapa(novo) { mapa = novo; if (movimentoReduzido.matches) desenhar(true); },
-    definirLugares(novos, callback) {
-      lugares = novos;
-      if (callback) aoEscolher = callback;
-      if (movimentoReduzido.matches) desenhar(true);
-    },
-    focar(lat, lon, lugar = null) {
-      tocou = true;
-      selecionado = lugar;
-      destino = { lat: Math.max(-85, Math.min(85, lat)), lon };
-      zoom = Math.max(zoom, 2.2);
-      prepararTabela();
-      if (movimentoReduzido.matches) { lon0 = lon; lat0 = destino.lat; destino = null; desenhar(true); }
+      if (reduzido.matches) iniciar();
     },
     reposicionar() { medir(); iniciar(); },
   };

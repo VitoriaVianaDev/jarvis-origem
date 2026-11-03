@@ -54,3 +54,33 @@ test('rádios próximas formam um ponto; coordenada vazia fica de fora', () => {
   assert.equal(mg.nome, 'Minas Gerais, BR');
   assert.ok(Math.abs(mg.lat - -20.74) < .001);
 });
+
+test('fala é dividida em frases curtas, sem perder texto', async () => {
+  const { dividirEmFrases } = await import('../public/voz.js');
+  const texto = 'Primeira frase. Segunda frase! ' + 'palavra '.repeat(80).trim() + '. Fim?';
+  const partes = dividirEmFrases(texto);
+  assert.ok(partes.every((p) => p.length <= 181));
+  assert.equal(partes.join(' ').replace(/\s+/g, ' '), texto);
+});
+
+test('a voz masculina em português do Brasil é preferida, salvo escolha salva', async () => {
+  const { escolherMelhorVoz } = await import('../public/voz.js');
+  const vozes = [
+    { name: 'Google português do Brasil', lang: 'pt-BR', voiceURI: 'g' },
+    { name: 'Microsoft Maria', lang: 'pt-BR', voiceURI: 'm' },
+    { name: 'Microsoft Daniel', lang: 'pt-BR', voiceURI: 'd' },
+    { name: 'Joana', lang: 'pt-PT', voiceURI: 'j' },
+  ];
+  assert.equal(escolherMelhorVoz(vozes, null).voiceURI, 'd');
+  assert.equal(escolherMelhorVoz(vozes, 'm').voiceURI, 'm');
+  assert.equal(escolherMelhorVoz([], null), null);
+});
+
+test('"Ei, Jarvis" é reconhecido em variações, sem disparar em outras palavras', async () => {
+  const { extrairChamado } = await import('../public/voz.js');
+  assert.deepEqual(extrairChamado('ei Jarvis'), { comando: '' });
+  assert.deepEqual(extrairChamado('Ei, Jarvis, que horas são?'), { comando: 'que horas são?' });
+  assert.deepEqual(extrairChamado('hey jarvis abaixa isso'), { comando: 'abaixa isso' });
+  assert.deepEqual(extrairChamado('então ei jarvis olha'), { comando: 'olha' });
+  for (const texto of ['bom dia', 'Travis Scott', 'jarvisão', 'o jardim']) assert.equal(extrairChamado(texto), null, texto);
+});

@@ -54,28 +54,20 @@
         <div><dt>Pedidos hoje</dt><dd id="leitura-pedidos">—</dd></div>
         <div><dt>Tokens hoje</dt><dd id="leitura-tokens">—</dd></div>
       </dl>
-      <div class="marca-bloco"><span class="marca">JARVIS</span></div>
+      <div class="marca-bloco"><span class="marca">J.A.R.V.I.S.</span></div>
       <button id="sair" type="button" class="botao-discreto">Sair</button>
     </header>
 
-    <section id="centro" class="centro" aria-label="Conversa com o JARVIS">
-      <div id="janela-nucleo" class="janela-nucleo" aria-hidden="true"></div>
+    <section id="centro" class="centro" aria-label="JARVIS">
+      <div id="janela-nucleo" class="janela-nucleo"></div>
+      <p id="dica-escuta" class="dica-escuta">Pronto para comandos</p>
       <div class="painel-hora">
         <p id="estado-nome" class="estado-nome" role="status">Em espera</p>
         <time id="hora" class="hora"></time>
         <time id="data" class="data"></time>
       </div>
-      <div id="historico" class="historico" role="log" aria-label="Mensagens da conversa" tabindex="0" hidden></div>
-      <p id="erro-conversa" class="mensagem-erro erro-conversa" role="alert"></p>
-      <form id="form-conversa" class="barra-conversa" novalidate>
-        <label for="mensagem" class="so-leitor">Sua mensagem</label>
-        <textarea id="mensagem" rows="1" maxlength="4000" placeholder="Fale com o JARVIS" autocomplete="off"></textarea>
-        <button id="enviar" type="submit" class="botao-principal">Enviar</button>
-      </form>
-      <div class="acoes-conversa">
-        <button id="ampliar-planeta" type="button" class="botao-discreto" hidden>Ampliar planeta</button>
-        <button id="nova-conversa" type="button" class="botao-discreto" hidden>Nova conversa</button>
-      </div>
+      <p id="legenda" class="legenda" aria-live="polite"></p>
+      <button id="falar" type="button" class="botao-falar">Falar com o JARVIS</button>
     </section>
 
     <aside class="coluna coluna-esquerda">
@@ -88,25 +80,50 @@
         <dl id="diagnostico" class="diagnostico" aria-live="polite"></dl>
         <p id="erro-diagnostico" class="mensagem-erro" role="alert"></p>
       </section>
+      <section class="painel painel-voz" aria-labelledby="voz-titulo">
+        <h2 id="voz-titulo">Voz do JARVIS</h2>
+        <label for="voz-escolha" class="so-leitor">Escolher a voz</label>
+        <select id="voz-escolha"></select>
+        <p id="voz-aviso" class="voz-aviso"></p>
+        <label class="opcao-escuta"><input id="escuta-ligada" type="checkbox"> Responder a “Ei, Jarvis”</label>
+        <p class="voz-nota">Enquanto ligado, o microfone fica aberto e o Chrome envia o áudio ao Google para reconhecer a fala. Mantenha o JARVIS aberto.</p>
+        <button id="voz-exemplo" type="button" class="botao-secundario">Ouvir exemplo</button>
+      </section>
+      <section class="painel painel-anotacoes" aria-labelledby="anotacoes-titulo">
+        <h2 id="anotacoes-titulo">Anotações</h2>
+        <form id="form-anotacao" novalidate>
+          <label for="anotacao" class="so-leitor">Nova anotação</label>
+          <textarea id="anotacao" rows="2" maxlength="2000" placeholder="Escreva uma anotação"></textarea>
+          <button type="submit" class="botao-secundario">Salvar anotação</button>
+          <p id="erro-anotacao" class="mensagem-erro" role="alert"></p>
+        </form>
+        <ul id="lista-anotacoes" class="lista-anotacoes"></ul>
+        <p id="sem-anotacoes" class="vazio" hidden>Nenhuma anotação salva ainda.</p>
+      </section>
       <section class="painel" aria-labelledby="modelos-titulo">
         <div class="painel-cabecalho">
           <h2 id="modelos-titulo">Modelos de IA</h2>
           <button id="testar-ia" type="button" class="botao-discreto">Testar IA</button>
         </div>
         <ul id="lista-modelos" class="lista-modelos"></ul>
+        <button id="nova-conversa" type="button" class="botao-discreto">Começar nova conversa</button>
+      </section>
+      <section class="painel" aria-labelledby="uso-titulo">
+        <h2 id="uso-titulo">Tokens de IA por hora, hoje</h2>
+        <div id="grafico-uso" class="grafico-uso"></div>
       </section>
       <section class="painel" aria-labelledby="modulos-titulo">
         <h2 id="modulos-titulo">Módulos</h2>
         <ul class="modulos">
           <li class="pronto">Acesso e banco</li>
           <li class="pronto">Conversa com IA</li>
+          <li class="pronto">Voz</li>
           <li class="pronto">Planeta e rádios</li>
           <li>Memória</li>
           <li>Lembretes e agenda</li>
           <li>Finanças</li>
           <li>Clima e notícias</li>
           <li>Pesquisa</li>
-          <li>Voz</li>
           <li>Backup</li>
         </ul>
         <p class="legenda-modulos">Acesos: prontos. Apagados: ainda não disponíveis.</p>
@@ -133,20 +150,15 @@
           </div>
         </div>
       </section>
-      <section class="painel painel-anotacoes" aria-labelledby="anotacoes-titulo">
-        <h2 id="anotacoes-titulo">Anotações</h2>
-        <form id="form-anotacao" novalidate>
-          <label for="anotacao" class="so-leitor">Nova anotação</label>
-          <textarea id="anotacao" rows="2" maxlength="2000" placeholder="Escreva uma anotação"></textarea>
-          <button type="submit" class="botao-secundario">Salvar anotação</button>
-          <p id="erro-anotacao" class="mensagem-erro" role="alert"></p>
-        </form>
-        <ul id="lista-anotacoes" class="lista-anotacoes"></ul>
-        <p id="sem-anotacoes" class="vazio" hidden>Nenhuma anotação salva ainda.</p>
-      </section>
-      <section class="painel" aria-labelledby="uso-titulo">
-        <h2 id="uso-titulo">Tokens de IA por hora, hoje</h2>
-        <div id="grafico-uso" class="grafico-uso"></div>
+      <section id="planeta-cartao" class="painel planeta-cartao" aria-labelledby="planeta-titulo">
+        <div class="painel-cabecalho">
+          <h2 id="planeta-titulo">Planeta</h2>
+          <button id="planeta-fechar" type="button" class="botao-secundario" hidden>Voltar ao JARVIS</button>
+        </div>
+        <div class="planeta-area">
+          <canvas id="planeta" class="planeta-tela"></canvas>
+          <button id="planeta-abrir" type="button" class="planeta-abrir" aria-label="Ampliar o planeta"></button>
+        </div>
       </section>
     </aside>
   </div>
