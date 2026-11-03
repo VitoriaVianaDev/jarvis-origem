@@ -14,5 +14,6 @@
       "database_name": "jarvis-db"
     }
   ],
-  "observability": { "enabled": true }
+  "ai": { "binding": "AI" },
+"observability": { "enabled": true }
 }
