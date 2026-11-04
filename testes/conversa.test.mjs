@@ -83,6 +83,8 @@ test('as instruções proíbem fingir recursos que ainda não existem', async ()
   assert.ok(sistema.includes('Nunca invente'));
   assert.ok(sistema.includes('Nunca diga que não consegue ouvir'));
   assert.ok(sistema.includes('responda que sim'));
+  assert.ok(sistema.includes('Estou ouvindo, sim'));
+  assert.ok(sistema.includes('Não mencione texto, transcrição'));
 });
 
 test('ferramenta salva anotação de verdade e informa o estado executando', async () => {
