@@ -81,6 +81,8 @@ test('as instruções proíbem fingir recursos que ainda não existem', async ()
   const sistema = pedidos[0].corpo.messages[0].content;
   for (const recurso of ['lembretes', 'finanças', 'previsão do tempo', 'pesquisa na internet']) assert.ok(sistema.includes(recurso));
   assert.ok(sistema.includes('Nunca invente'));
+  assert.ok(sistema.includes('Nunca diga que não consegue ouvir'));
+  assert.ok(sistema.includes('responda que sim'));
 });
 
 test('ferramenta salva anotação de verdade e informa o estado executando', async () => {
